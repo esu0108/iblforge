@@ -7,7 +7,7 @@
 // 表示するオブジェクトの種類 (UI の選択肢と MeshLibrary の内部配列の添字)
 enum SceneObject : int
 {
-	// 先頭 (= 0) が既定の表示モデル。.obj は CMake が configure 時にダウンロードし、ビルド時に meshforge でバイナリ (.mesh) に変換して exe の隣の models/ に置く。
+	// 先頭 (= 0) が既定の表示モデル。.obj は CMake が configure 時にダウンロードし、ビルド時に meshforge でバイナリ (.mesh) に変換して exe の隣の assets/models/ に置く。
 	SceneObject_Bunny = 0,  // Stanford Bunny
 	SceneObject_Armadillo,  // Armadillo
 	SceneObject_HappyBuddha,// Happy Buddha

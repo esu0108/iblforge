@@ -1,11 +1,9 @@
 #include "gfx/SceneRenderer.h"
 
-#include <d3dcompiler.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <filesystem>
+#include <stdexcept>
 
 #include "gfx/SrvHeap.h"
 
@@ -32,26 +30,6 @@ namespace
 	static_assert( sizeof( SceneCB ) % 16 == 0, "cbuffer layout" );
 	constexpr UINT kCbSize = ( sizeof( SceneCB ) + 255 ) & ~255u;
 	constexpr UINT kSceneSrvCount = SrvHeap::kSceneSlots; // ルートシグネチャのテーブル幅
-
-	ComPtr<ID3DBlob> CompileShader( const std::filesystem::path& file, const char* entry, const char* target )
-	{
-		UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
-#if defined(_DEBUG)
-		flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-#endif
-		ComPtr<ID3DBlob> code, errors;
-		const HRESULT hr = D3DCompileFromFile( file.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry, target, flags, 0, &code, &errors );
-		if( FAILED( hr ) )
-		{
-			std::string msg = "Shader compile failed: " + util::PathToUtf8( file ) + " [" + entry + "]";
-			if( errors ) msg += "\n" + std::string( static_cast<const char*>( errors->GetBufferPointer() ), errors->GetBufferSize() );
-			else msg += " (HRESULT " + util::HrToString( hr ) + ") - shaders フォルダが exe の隣にあるか確認してください";
-			throw std::runtime_error( msg );
-		}
-		return code;
-	}
 } // namespace
 
 void SceneRenderer::Init( ID3D12Device* device )
@@ -114,22 +92,22 @@ void SceneRenderer::CreateRootSignature( ID3D12Device* device )
 
 void SceneRenderer::CreatePipelines( ID3D12Device* device )
 {
-	const std::filesystem::path shader = util::ExeDir() / L"shaders" / L"pbr.hlsl";
-	auto vsObject = CompileShader( shader, "VSMain", "vs_5_1" );
-	auto psObject = CompileShader( shader, "PSMain", "ps_5_1" );
-	auto vsSky = CompileShader( shader, "SkyVS", "vs_5_1" );
-	auto psSky = CompileShader( shader, "SkyPS", "ps_5_1" );
+	// ビルド時にコンパイル済みのシェーダー (assets/shaders/pbr_<エントリ名>.cso)
+	const auto vsObject = util::LoadShaderBytecode( "pbr_VSMain.cso" );
+	const auto psObject = util::LoadShaderBytecode( "pbr_PSMain.cso" );
+	const auto vsSky = util::LoadShaderBytecode( "pbr_SkyVS.cso" );
+	const auto psSky = util::LoadShaderBytecode( "pbr_SkyPS.cso" );
 
 	const D3D12_INPUT_ELEMENT_DESC layout[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
-	auto makePso = [&]( ID3DBlob* vs, ID3DBlob* ps, bool useLayout, bool depth ) {
+	auto makePso = [&]( const std::vector<std::uint8_t>& vs, const std::vector<std::uint8_t>& ps, bool useLayout, bool depth ) {
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
 		d.pRootSignature = m_rootSig.Get();
-		d.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
-		d.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
+		d.VS = { vs.data(), vs.size() };
+		d.PS = { ps.data(), ps.size() };
 
 		auto& rt = d.BlendState.RenderTarget[0];
 		rt.BlendEnable = FALSE;
@@ -167,8 +145,8 @@ void SceneRenderer::CreatePipelines( ID3D12Device* device )
 		ThrowIfFailed( device->CreateGraphicsPipelineState( &d, IID_PPV_ARGS( &pso ) ), "CreateGraphicsPipelineState" );
 		return pso;
 	};
-	m_psoObject = makePso( vsObject.Get(), psObject.Get(), true, true );
-	m_psoSky = makePso( vsSky.Get(), psSky.Get(), false, false );
+	m_psoObject = makePso( vsObject, psObject, true, true );
+	m_psoSky = makePso( vsSky, psSky, false, false );
 }
 
 void SceneRenderer::Draw( const Frame& f, const Resources& res, const SceneParams& p, const GpuMesh& obj )

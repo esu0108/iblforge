@@ -81,7 +81,7 @@ target_compile_definitions(imgui_lib PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
 # 表示用モデル (alecjacobson/common-3d-test-models の .obj)
 #   Stanford Bunny / Armadillo / Happy Buddha / Lucy (各 2〜5MB)。
 #   コミットを固定した URL + SHA256 検証でダウンロードする (configure 時。検証済みなら再ダウンロードしない)。
-#   さらにビルド時に meshforge (下記) で、meshoptimizer による頂点/インデックスの最適化を行ったうえでバイナリ (.mesh) へ変換し、exe の隣の models/ に置く。
+#   さらにビルド時に meshforge (下記) で、meshoptimizer による頂点/インデックスの最適化を行ったうえでバイナリ (.mesh) へ変換し、exe の隣の assets/models/ に置く。
 #   実行時の exe は .mesh を読むだけ (.obj のパースや rapidobj は実行時には不要)。
 #   失敗してもビルドは続行し、実行時は UI でそのモデルが選べなくなるだけ (球体は内蔵)。
 # ------------------------------------------------------------------
@@ -190,7 +190,7 @@ add_executable(iblforge WIN32
 )
 target_include_directories(iblforge PRIVATE src resources)
 target_link_libraries(iblforge PRIVATE
-  DirectXTex imgui_lib d3d12 dxgi d3dcompiler comdlg32 shell32 ole32 user32 dwmapi advapi32
+  DirectXTex imgui_lib d3d12 dxgi comdlg32 shell32 ole32 user32 dwmapi advapi32
 )
 target_compile_definitions(iblforge PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
 set_source_files_properties(shaders/pbr.hlsl shaders/ibl_bake.hlsl shaders/taa.hlsl PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -201,18 +201,67 @@ if(MSVC)
   set_target_properties(iblforge PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-# シェーダーは実行時に D3DCompileFromFile でコンパイルする。exe の隣へコピー。
+# ------------------------------------------------------------------
+# シェーダーはビルド時に fxc (Windows SDK) で事前コンパイルし、<名前>_<エントリ>.cso を exe の隣の assets/shaders/ に置く。
+#   実行時は .cso を読むだけ (HLSL のソースや D3DCompile は実行時には不要)。
+#   "<hlsl の名前>|<エントリ>|<ターゲット>"。実行時側 (SceneRenderer / TaaResolver / BakePipelines) の .cso 名と一致させること。
+# ------------------------------------------------------------------
+file(GLOB _fxc_hints "C:/Program Files (x86)/Windows Kits/10/bin/*/x64")
+list(SORT _fxc_hints COMPARE NATURAL ORDER DESCENDING) # 新しい SDK を優先
+find_program(FXC_EXECUTABLE fxc
+  HINTS "$ENV{WindowsSdkVerBinPath}/x64" "$ENV{WindowsSdkBinPath}/x64" ${_fxc_hints}
+  DOC "HLSL compiler (Windows SDK)")
+if(NOT FXC_EXECUTABLE)
+  message(FATAL_ERROR "fxc.exe が見つかりません。Windows SDK をインストールするか、FXC_EXECUTABLE に fxc.exe のパスを指定してください。")
+endif()
+message(STATUS "fxc: ${FXC_EXECUTABLE}")
+
+set(SHADER_LIST
+  "pbr|VSMain|vs_5_1"
+  "pbr|PSMain|ps_5_1"
+  "pbr|SkyVS|vs_5_1"
+  "pbr|SkyPS|ps_5_1"
+  "taa|ResolveVS|vs_5_1"
+  "taa|ResolvePS|ps_5_1"
+  "ibl_bake|EquirectToCubeCS|cs_5_1"
+  "ibl_bake|DownsampleCS|cs_5_1"
+  "ibl_bake|PrefilterCopyCS|cs_5_1"
+  "ibl_bake|PrefilterCS|cs_5_1"
+  "ibl_bake|IrradianceCS|cs_5_1"
+  "ibl_bake|BrdfLutCS|cs_5_1"
+)
+set(SHADER_OUT_DIR "${CMAKE_BINARY_DIR}/shaders_compiled/$<CONFIG>")
+set(SHADER_CSO_OUTPUTS "")
+foreach(entry IN LISTS SHADER_LIST)
+  string(REPLACE "|" ";" parts "${entry}")
+  list(GET parts 0 sh_name)
+  list(GET parts 1 sh_entry)
+  list(GET parts 2 sh_target)
+  set(sh_src "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${sh_name}.hlsl")
+  set(sh_out "${SHADER_OUT_DIR}/${sh_name}_${sh_entry}.cso")
+  add_custom_command(
+    OUTPUT "${sh_out}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_OUT_DIR}"
+    COMMAND "${FXC_EXECUTABLE}" /nologo /E ${sh_entry} /T ${sh_target}
+            $<$<CONFIG:Debug>:/Zi> $<$<CONFIG:Debug>:/Od> $<$<NOT:$<CONFIG:Debug>>:/O3> /Fo "${sh_out}" "${sh_src}"
+    DEPENDS "${sh_src}"
+    COMMENT "Compiling ${sh_name}.hlsl [${sh_entry}] (${sh_target})"
+    VERBATIM COMMAND_EXPAND_LISTS)
+  list(APPEND SHADER_CSO_OUTPUTS "${sh_out}")
+endforeach()
+add_custom_target(iblforge_shaders DEPENDS ${SHADER_CSO_OUTPUTS})
+add_dependencies(iblforge iblforge_shaders)
 add_custom_command(TARGET iblforge POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-          ${CMAKE_CURRENT_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:iblforge>/shaders
+  COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:iblforge>/assets/shaders
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SHADER_CSO_OUTPUTS} $<TARGET_FILE_DIR:iblforge>/assets/shaders
 )
 
-# 変換済みモデル (.mesh) を exe の隣の models/ へコピー (Renderer は ExeDir()/models/<name>.mesh を読む)
+# 変換済みモデル (.mesh) を exe の隣の assets/models/ へコピー (Renderer は ExeDir()/assets/models/<name>.mesh を読む)
 if(MODEL_MESH_OUTPUTS)
   add_custom_target(iblforge_models DEPENDS ${MODEL_MESH_OUTPUTS})
   add_dependencies(iblforge iblforge_models)
   add_custom_command(TARGET iblforge POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:iblforge>/models
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MODEL_MESH_OUTPUTS} $<TARGET_FILE_DIR:iblforge>/models
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:iblforge>/assets/models
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MODEL_MESH_OUTPUTS} $<TARGET_FILE_DIR:iblforge>/assets/models
   )
 endif()

@@ -7,10 +7,13 @@
 #endif
 #include <Windows.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace util
 {
@@ -53,5 +56,20 @@ namespace util
 		wchar_t buf[MAX_PATH * 2];
 		const DWORD n = GetModuleFileNameW( nullptr, buf, static_cast<DWORD>( std::size( buf ) ) );
 		return std::filesystem::path( std::wstring( buf, n ) ).parent_path();
+	}
+
+	// ビルド時にコンパイル済みのシェーダー (assets/shaders/<hlsl の名前>_<エントリ名>.cso, exe の隣) を読み込む。
+	// 例: LoadShaderBytecode( "pbr_VSMain.cso" )
+	inline std::vector<std::uint8_t> LoadShaderBytecode( const char* csoName )
+	{
+		const std::filesystem::path file = ExeDir() / L"assets" / L"shaders" / Utf8ToWide( csoName );
+		std::ifstream in( file, std::ios::binary | std::ios::ate );
+		if( !in ) throw std::runtime_error( "Shader not found: " + PathToUtf8( file ) + " - ビルドで生成された assets/shaders フォルダが exe の隣にあるか確認してください" );
+		const std::streamsize size = in.tellg();
+		if( size <= 0 ) throw std::runtime_error( "Shader file is empty: " + PathToUtf8( file ) );
+		std::vector<std::uint8_t> data( static_cast<size_t>( size ) );
+		in.seekg( 0 );
+		if( !in.read( reinterpret_cast<char*>( data.data() ), size ) ) throw std::runtime_error( "Failed to read shader: " + PathToUtf8( file ) );
+		return data;
 	}
 } // namespace util

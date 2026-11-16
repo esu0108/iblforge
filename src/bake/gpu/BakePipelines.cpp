@@ -1,8 +1,5 @@
 #include "BakePipelines.h"
 
-#include <d3dcompiler.h>
-
-#include <filesystem>
 #include <stdexcept>
 
 namespace ibl
@@ -11,21 +8,6 @@ namespace ibl
 	{
 		namespace
 		{
-			ComPtr<ID3DBlob> CompileCs( const std::filesystem::path& file, const char* entry )
-			{
-				UINT flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3;
-				ComPtr<ID3DBlob> code, errors;
-				const HRESULT hr = D3DCompileFromFile( file.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry, "cs_5_1", flags, 0, &code, &errors );
-				if( FAILED( hr ) )
-				{
-					std::string msg = "Shader compile failed: " + util::PathToUtf8( file ) + " [" + entry + "]";
-					if( errors ) msg += "\n" + std::string( static_cast<const char*>( errors->GetBufferPointer() ), errors->GetBufferSize() );
-					else msg += " (HRESULT " + util::HrToString( hr ) + ") - shaders フォルダが exe の隣にあるか確認してください";
-					throw std::runtime_error( msg );
-				}
-				return code;
-			}
-
 			ComPtr<ID3D12RootSignature> CreateRootSignature( ID3D12Device* dev )
 			{
 				// ルートシグネチャ: [0] 32bit 定数 (b0, 12 DWORD)  [1] テーブル (SRV t0..t3, UAV u0)  + 静的サンプラ s0
@@ -78,12 +60,12 @@ namespace ibl
 		{
 			rootSig = CreateRootSignature( dev );
 
-			const std::filesystem::path shader = util::ExeDir() / L"shaders" / L"ibl_bake.hlsl";
+			// シェーダーはビルド時に fxc でコンパイル済み (assets/shaders/ibl_bake_<エントリ名>.cso)
 			auto make = [&]( const char* entry ) {
-				ComPtr<ID3DBlob> cs = CompileCs( shader, entry );
+				const std::vector<std::uint8_t> cs = util::LoadShaderBytecode( ( std::string( "ibl_bake_" ) + entry + ".cso" ).c_str() );
 				D3D12_COMPUTE_PIPELINE_STATE_DESC d{};
 				d.pRootSignature = rootSig.Get();
-				d.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
+				d.CS = { cs.data(), cs.size() };
 				ComPtr<ID3D12PipelineState> pso;
 				ThrowIfFailed( dev->CreateComputePipelineState( &d, IID_PPV_ARGS( &pso ) ), "CreateComputePipelineState" );
 				return pso;

@@ -18,7 +18,7 @@ namespace
 	{
 		int object;
 		const char* uiName;
-		const wchar_t* file;     // models/ 内のファイル名 (CMakeLists.txt の MODEL_LIST の名前 + ".mesh" と一致させること)
+		const wchar_t* file;     // assets/models/ 内のファイル名 (CMakeLists.txt の MODEL_LIST の名前 + ".mesh" と一致させること)
 	};
 	const ModelDesc kModels[] = {
 		{ SceneObject_Bunny,       "Stanford Bunny", L"stanford-bunny.mesh" },
@@ -99,7 +99,7 @@ void MeshLibrary::Init( ID3D12Device* device )
 		const ModelDesc* md = FindModelDesc( i );
 		if( !md ) continue; // 球体は上で作成済み
 		GpuMesh& m = m_meshes[i];
-		const std::filesystem::path path = util::ExeDir() / L"models" / md->file;
+		const std::filesystem::path path = util::ExeDir() / L"assets" / L"models" / md->file;
 		mesh::MeshBinary data;
 		std::string err;
 		if( mesh::LoadMeshFile( path, data, err ) )

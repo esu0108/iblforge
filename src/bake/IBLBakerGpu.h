@@ -1,5 +1,5 @@
 // IBLBakerGpu.h : IBL ベイクの GPU 実装 (Direct3D 12 Compute Shader)
-//   shaders/ibl_bake.hlsl を実行時にコンパイルして使う。呼び出し側が渡した D3D12 デバイス (ビューアと共有) を使う。
+//   shaders/ibl_bake.hlsl をビルド時にコンパイルした .cso (assets/shaders/) を実行時に読み込んで使う。呼び出し側が渡した D3D12 デバイス (ビューアと共有) を使う。
 //   nullptr なら専用デバイスを作るので、別スレッド / --bake-only (ウィンドウ無し) からも呼べる。
 //   アルゴリズムは IBLBaker.cpp (CPU 版) と同じで、結果は CubeMap / LUT として CPU メモリに読み戻す。
 //   → DDS への保存・ビューアへの再読み込みは CPU 版と共通のコードを使う。

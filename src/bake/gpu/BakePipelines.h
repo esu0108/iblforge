@@ -1,4 +1,4 @@
-// BakePipelines.h : ibl_bake.hlsl のルートシグネチャと 6 本のコンピュート PSO (実行時にシェーダーをコンパイル)
+// BakePipelines.h : ibl_bake.hlsl のルートシグネチャと 6 本のコンピュート PSO (ビルド時にコンパイル済みのシェーダーを読み込む)
 #pragma once
 #include "GpuCommon.h"
 

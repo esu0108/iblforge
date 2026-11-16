@@ -1,11 +1,9 @@
 #include "gfx/TaaResolver.h"
 
-#include <d3dcompiler.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <filesystem>
+#include <stdexcept>
 
 using util::ThrowIfFailed;
 using namespace gpu;
@@ -33,21 +31,6 @@ namespace
 			index /= base;
 		}
 		return r;
-	}
-
-	ComPtr<ID3DBlob> Compile( const std::filesystem::path& file, const char* entry, const char* target )
-	{
-		UINT flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3;
-		ComPtr<ID3DBlob> code, errors;
-		const HRESULT hr = D3DCompileFromFile( file.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry, target, flags, 0, &code, &errors );
-		if( FAILED( hr ) )
-		{
-			std::string msg = "Shader compile failed: " + util::PathToUtf8( file ) + " [" + entry + "]";
-			if( errors ) msg += "\n" + std::string( static_cast<const char*>( errors->GetBufferPointer() ), errors->GetBufferSize() );
-			else msg += " (HRESULT " + util::HrToString( hr ) + ") - shaders フォルダが exe の隣にあるか確認してください";
-			throw std::runtime_error( msg );
-		}
-		return code;
 	}
 } // namespace
 
@@ -106,14 +89,14 @@ void TaaResolver::CreatePipeline( ID3D12Device* device )
 	if( FAILED( hr ) ) throw std::runtime_error( std::string( "D3D12SerializeRootSignature(TAA): " ) + ( err ? static_cast<const char*>( err->GetBufferPointer() ) : "" ) );
 	ThrowIfFailed( device->CreateRootSignature( 0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS( &m_rootSig ) ), "CreateRootSignature(TAA)" );
 
-	const std::filesystem::path shader = util::ExeDir() / L"shaders" / L"taa.hlsl";
-	auto vs = Compile( shader, "ResolveVS", "vs_5_1" );
-	auto ps = Compile( shader, "ResolvePS", "ps_5_1" );
+	// ビルド時にコンパイル済みのシェーダー
+	const auto vs = util::LoadShaderBytecode( "taa_ResolveVS.cso" );
+	const auto ps = util::LoadShaderBytecode( "taa_ResolvePS.cso" );
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
 	d.pRootSignature = m_rootSig.Get();
-	d.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
-	d.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
+	d.VS = { vs.data(), vs.size() };
+	d.PS = { ps.data(), ps.size() };
 	for( auto& rt : d.BlendState.RenderTarget )
 	{
 		rt.SrcBlend = D3D12_BLEND_ONE;       rt.DestBlend = D3D12_BLEND_ZERO;       rt.BlendOp = D3D12_BLEND_OP_ADD;

@@ -19,7 +19,7 @@ struct GpuMesh
 class MeshLibrary
 {
 public:
-	// 球を作り、models/ の .mesh を読み込む。モデルの失敗は致命的ではなく、その種類が選べなくなるだけ
+	// 球を作り、assets/models/ の .mesh を読み込む。モデルの失敗は致命的ではなく、その種類が選べなくなるだけ
 	void Init( ID3D12Device* device );
 	void Release();
 
