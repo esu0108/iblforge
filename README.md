@@ -111,7 +111,7 @@ Launch the application:
 iblforge.exe
 ```
 
-1. Load an HDR environment map using `File > Open HDRI...` or drag and drop an `.hdr` file onto the window.
+1. Load an HDR environment map using `File > Open HDRI...` or drag and drop an `.hdr` or `.exr` file onto the window.
 2. Configure the baking parameters in the **IBL Bake** panel.
 3. Select CPU or GPU processing.
 4. Click **Bake** to generate the lighting textures.
@@ -127,7 +127,7 @@ Previously generated textures can be loaded using `File > Import baked textures.
 iblforge supports headless baking, allowing textures to be generated and exported directly from the command line without launching the GUI.
 
 ```bash
-iblforge.exe --bake-only input.hdr output_directory
+iblforge.exe --bake-only input.hdr output_directory   # .exr is also accepted
 ```
 
 Example:
@@ -264,6 +264,7 @@ iblforge uses the following third-party libraries:
 | Library | Purpose | Version |
 |---|---|---|
 | [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR image loading and DDS texture I/O | oct2025 |
+| [TinyEXR](https://github.com/syoyo/tinyexr) | OpenEXR (.exr) image loading | v3.4.0 |
 | [Dear ImGui](https://github.com/ocornut/imgui) | GUI and docking interface | v1.93.0-docking |
 | [rapidobj](https://github.com/guybrush77/rapidobj) | OBJ loading for the build-time mesh converter | v1.1 |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | Mesh optimization for the build-time mesh converter | v1.3 |

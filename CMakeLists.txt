@@ -13,7 +13,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
 # ------------------------------------------------------------------
-# DirectXTex (HDR読み込み / DDS保存・読み込み)
+# DirectXTex (.hdr 読み込み / DDS保存・読み込み)
 #   D3D12アップロードは自前実装するので DX11/DX12 サポートは不要
 # ------------------------------------------------------------------
 set(BUILD_TOOLS  OFF CACHE BOOL "" FORCE)
@@ -63,7 +63,39 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
 )
 
-FetchContent_MakeAvailable(DirectXTex imgui rapidobj meshoptimizer)
+# ------------------------------------------------------------------
+# TinyEXR v3.4.0 (.exr 読み込み。純 C11 ライブラリ。API は include/exr.h)
+#   付属の CMakeLists.txt は v1 系の「コンパイルテスト用」で v3 の C ライブラリは作らない (本家は Makefile = `make lib`)。
+#   そのため SOURCE_SUBDIR に存在しない場所を指定して add_subdirectory を避け、ソースだけ取得して下で静的ライブラリにする。
+#   Makefile の `make lib DEFLATE=intree` と同じ構成: src/*.c (GPU / freestanding 版を除く) + zstd。
+#   ZIP / PXR24 の DEFLATE は libdeflate を使わない内蔵の純 C 実装 (外部依存なし。やや遅いだけ)。スレッド / SIMD は実行時に自動選択。
+# ------------------------------------------------------------------
+FetchContent_Declare(
+  tinyexr
+  GIT_REPOSITORY https://github.com/syoyo/tinyexr.git
+  GIT_TAG        v3.4.0
+  GIT_SHALLOW    TRUE
+  SOURCE_SUBDIR  _no_cmake_
+)
+
+FetchContent_MakeAvailable(DirectXTex imgui rapidobj meshoptimizer tinyexr)
+
+enable_language(C)
+file(GLOB TINYEXR_C_SOURCES CONFIGURE_DEPENDS ${tinyexr_SOURCE_DIR}/src/*.c)
+list(FILTER TINYEXR_C_SOURCES EXCLUDE REGEX "/exr_(gpu_cuda|vk_vulkan|freestanding)\\.c$")
+add_library(tinyexr_lib STATIC ${TINYEXR_C_SOURCES} ${tinyexr_SOURCE_DIR}/deps/zstd/tinyexr_zstd.c)
+target_include_directories(tinyexr_lib PUBLIC ${tinyexr_SOURCE_DIR}/include)               # 利用側が見るのは exr.h だけ
+target_include_directories(tinyexr_lib PRIVATE ${tinyexr_SOURCE_DIR}/src ${tinyexr_SOURCE_DIR}/deps/zstd)
+set_target_properties(tinyexr_lib PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+target_compile_definitions(tinyexr_lib PRIVATE _CRT_SECURE_NO_WARNINGS)
+if(MSVC)
+  target_compile_options(tinyexr_lib PRIVATE /W0)  # サードパーティ: 警告は出さない
+  # cl.exe には GCC の __builtin_clz / __builtin_ctz (exr_jph.c など) が無く、未解決の外部シンボルでリンクに失敗するので、
+  # 代替 (_BitScanReverse / _BitScanForward) を定義するヘッダーを全ソースに強制インクルードする (clang-cl では何もしない)。
+  target_compile_options(tinyexr_lib PRIVATE "/FI${CMAKE_CURRENT_SOURCE_DIR}/cmake/msvc_builtins.h")
+else()
+  target_compile_options(tinyexr_lib PRIVATE -w)
+endif()
 
 add_library(imgui_lib STATIC
   ${imgui_SOURCE_DIR}/imgui.cpp
@@ -190,7 +222,7 @@ add_executable(iblforge WIN32
 )
 target_include_directories(iblforge PRIVATE src resources)
 target_link_libraries(iblforge PRIVATE
-  DirectXTex imgui_lib d3d12 dxgi comdlg32 shell32 ole32 user32 dwmapi advapi32
+  DirectXTex tinyexr_lib imgui_lib d3d12 dxgi comdlg32 shell32 ole32 user32 dwmapi advapi32
 )
 target_compile_definitions(iblforge PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
 set_source_files_properties(shaders/pbr.hlsl shaders/ibl_bake.hlsl shaders/taa.hlsl PROPERTIES HEADER_FILE_ONLY TRUE)

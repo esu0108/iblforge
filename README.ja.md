@@ -111,7 +111,7 @@ build/Release/iblforge.exe
 iblforge.exe
 ```
 
-1. `File > Open HDRI...` からHDR環境マップを開くか、`.hdr` ファイルをウィンドウにドラッグ＆ドロップします。
+1. `File > Open HDRI...` からHDR環境マップを開くか、`.hdr` / `.exr` ファイルをウィンドウにドラッグ＆ドロップします。
 2. **IBL Bake** パネルでベイキングパラメータを設定します。
 3. CPUまたはGPUの処理方式を選択します。
 4. **Bake** をクリックしてライティングテクスチャを生成します。
@@ -264,6 +264,7 @@ iblforgeでは、以下のサードパーティライブラリを使用してい
 | ライブラリ | 用途 | バージョン |
 |---|---|---|
 | [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR画像の読み込み、DDSテクスチャの入出力 | oct2025 |
+| [TinyEXR](https://github.com/syoyo/tinyexr) | OpenEXR (.exr) 画像の読み込み | v3.4.0 |
 | [Dear ImGui](https://github.com/ocornut/imgui) | GUIおよびDockingインターフェース | v1.93.0-docking |
 | [rapidobj](https://github.com/guybrush77/rapidobj) | ビルド時のメッシュ変換ツールにおけるOBJ読み込み | v1.1 |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | ビルド時のメッシュ変換ツールにおけるメッシュ最適化 | v1.3 |

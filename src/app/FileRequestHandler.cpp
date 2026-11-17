@@ -59,7 +59,7 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 	if( req.open )
 	{
 		req.open = false;
-		const auto f = PickOpenFile( owner, Wide( i18n::Str::DlgOpenHdri ).c_str(), Filter( i18n::Str::DlgHdrFilter, L"*.hdr" ).c_str() );
+		const auto f = PickOpenFile( owner, Wide( i18n::Str::DlgOpenHdri ).c_str(), Filter( i18n::Str::DlgHdrFilter, L"*.hdr;*.exr" ).c_str() );
 		ReleaseInputAfterDialog();
 		if( f ) workflow.OpenHdr( *f );
 	}
@@ -81,12 +81,12 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 		}
 	}
 
-	// ドロップされたファイル: .hdr は開く
+	// ドロップされたファイル: .hdr / .exr は開く
 	if( !req.droppedFile.empty() )
 	{
 		const std::filesystem::path dropped = req.droppedFile;
 		req.droppedFile.clear();
-		if( _wcsicmp( dropped.extension().c_str(), L".hdr" ) == 0 ) workflow.OpenHdr( dropped );
+		if( _wcsicmp( dropped.extension().c_str(), L".hdr" ) == 0 || _wcsicmp( dropped.extension().c_str(), L".exr" ) == 0 ) workflow.OpenHdr( dropped );
 		else model.status = i18n::Tr( i18n::Str::OnlyHdr );
 	}
 }

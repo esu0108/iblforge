@@ -5,11 +5,14 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cwctype>
 #include <atomic>
 #include <cstring>
 #include <fstream>
 
 #include "Common.h"
+#include "ExrDecode.h"
 #include "IBLBakerGpu.h"
 #include "cpu/ParallelFor.h"
 
@@ -43,40 +46,69 @@ namespace ibl
 		return o;
 	}
 
-	// ------------------------------------------------------------------ HDR 読み込み
+	// ------------------------------------------------------------------ HDR / EXR 読み込み
+	namespace
+	{
+		// リニア RGBA float (行優先, 上が +Y, stride = 1 ピクセル 4 float) から EquirectImage を作る。NaN/Inf/負値は 0 にする
+		bool FillEquirect( const float* rgba, size_t rowFloats, uint32_t width, uint32_t height, EquirectImage& out, std::string& err )
+		{
+			if( width < 8 || height < 4 ) { err = "HDRI is too small / invalid."; return false; }
+			out.width = width;
+			out.height = height;
+			out.pixels.resize( static_cast<size_t>( width ) * height );
+			auto sane = []( float v ) { return std::isfinite( v ) ? std::max( v, 0.0f ) : 0.0f; };
+			for( uint32_t y = 0; y < height; ++y )
+			{
+				const float* row = rgba + static_cast<size_t>( y ) * rowFloats;
+				for( uint32_t x = 0; x < width; ++x )
+					out.pixels[static_cast<size_t>( y ) * width + x] = { sane( row[x * 4 + 0] ), sane( row[x * 4 + 1] ), sane( row[x * 4 + 2] ) };
+			}
+			return true;
+		}
+
+		bool LoadHdrFile( const std::filesystem::path& path, EquirectImage& out, std::string& err )
+		{
+			DirectX::TexMetadata meta{};
+			DirectX::ScratchImage img;
+			HRESULT hr = DirectX::LoadFromHDRFile( path.c_str(), &meta, img );
+			if( FAILED( hr ) ) { err = Hr( "LoadFromHDRFile", hr ) + ": " + util::PathToUtf8( path ); return false; }
+
+			const DirectX::ScratchImage* use = &img;
+			DirectX::ScratchImage converted;
+			if( meta.format != DXGI_FORMAT_R32G32B32A32_FLOAT )
+			{
+				hr = DirectX::Convert( img.GetImages(), img.GetImageCount(), meta, DXGI_FORMAT_R32G32B32A32_FLOAT,
+									  DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, converted );
+				if( FAILED( hr ) ) { err = Hr( "Convert(R32G32B32A32_FLOAT)", hr ); return false; }
+				use = &converted;
+			}
+
+			const DirectX::Image* im = use->GetImage( 0, 0, 0 );
+			if( !im ) { err = "HDRI is too small / invalid."; return false; }
+			return FillEquirect( reinterpret_cast<const float*>( im->pixels ), im->rowPitch / sizeof( float ),
+								 static_cast<uint32_t>( im->width ), static_cast<uint32_t>( im->height ), out, err );
+		}
+
+		// OpenEXR: ファイルは自前で (ワイド文字パスのまま) 読み、メモリ上でデコードする (TinyEXR のファイル名 API は ANSI のため)。
+		bool LoadExrFile( const std::filesystem::path& path, EquirectImage& out, std::string& err )
+		{
+			std::ifstream f( path, std::ios::binary | std::ios::ate );
+			if( !f ) { err = "Cannot open file: " + util::PathToUtf8( path ); return false; }
+			const std::streamoff size = f.tellg();
+			if( size <= 0 ) { err = "Empty file: " + util::PathToUtf8( path ); return false; }
+			std::vector<unsigned char> bytes( static_cast<size_t>( size ) );
+			f.seekg( 0 );
+			if( !f.read( reinterpret_cast<char*>( bytes.data() ), size ) ) { err = "Failed to read file: " + util::PathToUtf8( path ); return false; }
+			if( !DecodeExr( bytes.data(), bytes.size(), out, err ) ) { err += ": " + util::PathToUtf8( path ); return false; }
+			return true;
+		}
+	} // namespace
+
 	bool LoadEquirectHdr( const std::filesystem::path& path, EquirectImage& out, std::string& err )
 	{
-		DirectX::TexMetadata meta{};
-		DirectX::ScratchImage img;
-		HRESULT hr = DirectX::LoadFromHDRFile( path.c_str(), &meta, img );
-		if( FAILED( hr ) ) { err = Hr( "LoadFromHDRFile", hr ) + ": " + util::PathToUtf8( path ); return false; }
-
-		const DirectX::ScratchImage* use = &img;
-		DirectX::ScratchImage converted;
-		if( meta.format != DXGI_FORMAT_R32G32B32A32_FLOAT )
-		{
-			hr = DirectX::Convert( img.GetImages(), img.GetImageCount(), meta, DXGI_FORMAT_R32G32B32A32_FLOAT,
-								  DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, converted );
-			if( FAILED( hr ) ) { err = Hr( "Convert(R32G32B32A32_FLOAT)", hr ); return false; }
-			use = &converted;
-		}
-
-		const DirectX::Image* im = use->GetImage( 0, 0, 0 );
-		if( !im || im->width < 8 || im->height < 4 ) { err = "HDRI is too small / invalid."; return false; }
-
-		out.width = static_cast<uint32_t>( im->width );
-		out.height = static_cast<uint32_t>( im->height );
-		out.pixels.resize( static_cast<size_t>( out.width ) * out.height );
-		for( uint32_t y = 0; y < out.height; ++y )
-		{
-			const float* row = reinterpret_cast<const float*>( im->pixels + static_cast<size_t>( y ) * im->rowPitch );
-			for( uint32_t x = 0; x < out.width; ++x )
-			{
-				auto sane = []( float v ) { return std::isfinite( v ) ? std::max( v, 0.0f ) : 0.0f; }; // NaN/Inf/負値を除去
-				out.pixels[static_cast<size_t>( y ) * out.width + x] = { sane( row[x * 4 + 0] ), sane( row[x * 4 + 1] ), sane( row[x * 4 + 2] ) };
-			}
-		}
-		return true;
+		std::wstring ext = path.extension().wstring();
+		for( wchar_t& c : ext ) c = static_cast<wchar_t>( std::towlower( c ) );
+		return ext == L".exr" ? LoadExrFile( path, out, err ) : LoadHdrFile( path, out, err );
 	}
 
 	// ------------------------------------------------------------------ DDS イメージ生成 / 保存

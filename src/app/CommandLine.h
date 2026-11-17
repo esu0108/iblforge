@@ -1,6 +1,6 @@
 // CommandLine.h : コマンドライン引数の解析
 //
-//   iblforge.exe [input.hdr] [outputDir] [options]
+//   iblforge.exe [input.hdr|input.exr] [outputDir] [options]
 //     --src N          中間キューブの一辺 (既定 512)
 //     --size N         Prefiltered Cube mip0 の一辺 (既定 256)
 //     --samples N      Prefilter のサンプル数 (既定 1024)

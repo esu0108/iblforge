@@ -16,7 +16,7 @@ int RunHeadless( const CmdLine& c )
 		freopen_s( &f, "CONOUT$", "w", stdout );
 		freopen_s( &f, "CONOUT$", "w", stderr );
 	}
-	if( c.input.empty() ) { std::fprintf( stderr, "usage: iblforge --bake-only <input.hdr> [outputDir] [options]\n" ); return 2; }
+	if( c.input.empty() ) { std::fprintf( stderr, "usage: iblforge --bake-only <input.hdr|input.exr> [outputDir] [options]\n" ); return 2; }
 
 	// HDRI は先に読み込み、ベイクには読み込み済みの画像を渡す (GUI と同じ流れ)
 	auto hdr = std::make_shared<ibl::EquirectImage>();

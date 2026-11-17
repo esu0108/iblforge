@@ -41,7 +41,7 @@ namespace ibl
 		bool Valid() const { return prefiltered && lut && irradiance; }
 	};
 
-	// .hdr を読み込む (別スレッドから呼んでよい)
+	// .hdr (DirectXTex) / .exr (TinyEXR v3) を拡張子で振り分けて読み込む (別スレッドから呼んでよい)
 	bool LoadEquirectHdr( const std::filesystem::path& path, EquirectImage& out, std::string& err );
 
 	// 読み込み済み HDRI (job.hdr) に対して各種ベイクを実行し、結果をメモリ上に返す (ファイルは書かない。別スレッドから呼んでよい)。
