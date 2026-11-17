@@ -1,34 +1,35 @@
+[English](README.md) | [日本語](README.ja.md)
+
 # iblforge
 
 **A real-time Image-Based Lighting (IBL) baking tool with CPU and GPU acceleration.**
 
-iblforge converts panoramic HDR environment maps into PBR-ready lighting textures. It combines a configurable IBL baker with a Direct3D 12 viewer, allowing you to bake, inspect, adjust, and export lighting data in one application.
+iblforge converts equirectangular HDR environment maps into PBR-ready lighting textures. It provides a configurable baking pipeline with both multithreaded CPU processing and Direct3D 12 GPU acceleration, allowing you to generate, inspect, and export IBL textures in a single application.
 
 ## Features
 
-- **Complete IBL baking** — Generate prefiltered specular cubemaps, diffuse irradiance cubemaps, and BRDF integration LUTs.
-- **CPU & GPU acceleration** — Choose between a multithreaded CPU implementation and Direct3D 12 compute shaders.
-- **Multilingual UI** — English, 日本語, 简体中文, 한국어, Español, Français, Deutsch, Русский. Switch from the **Language** menu (saved to `language.txt` next to the exe; defaults to the OS language). Add a language by editing `src/i18n/I18nStrings.inc` and `Lang` in `src/i18n/I18n.h`.
-- **Real-time preview** — Inspect baked lighting on 3D models with adjustable materials and lighting parameters.
-- **Multiple output formats** — Export HDR cubemaps in RGBA16F, RGBA32F, R11G11B10F, or BC6H.
-- **Configurable baking** — Adjust texture resolutions, sampling counts, and firefly clamping.
-- **Asynchronous processing** — Keep the interface responsive while loading HDR images and baking textures.
-- **Headless mode** — Bake and export textures directly from the command line without opening the GUI.
-- **TAA** — Temporal anti-aliasing for smoother real-time previews.
+- **Specular IBL** — Generate GGX-prefiltered environment cubemaps with a complete mip chain.
+- **Diffuse IBL** — Generate irradiance cubemaps using cosine-weighted hemisphere sampling.
+- **BRDF Integration** — Generate split-sum BRDF integration LUTs for physically based rendering.
+- **CPU & GPU Acceleration** — Choose between multithreaded CPU processing and Direct3D 12 compute shaders.
+- **Configurable Baking** — Adjust texture resolutions, sampling counts, and firefly clamping.
+- **Multiple Output Formats** — Export HDR cubemaps in RGBA16F, RGBA32F, R11G11B10F, or BC6H.
+- **Command-Line Interface** — Bake and export textures without launching the GUI.
+- **3D Preview** — Inspect generated lighting textures on 3D models with adjustable materials and lighting parameters.
 
 ## Generated Textures
 
-iblforge generates three DDS textures from a single equirectangular HDR environment map.
+From a single equirectangular HDR environment map, iblforge generates three DDS textures:
 
 | Output | Description | Default Format |
 |---|---|---|
 | `*_prefiltered.dds` | GGX-prefiltered specular environment cubemap with a complete mip chain | RGBA16F |
-| `*_irradiance.dds` | Diffuse irradiance cubemap using cosine-weighted convolution | RGBA16F |
+| `*_irradiance.dds` | Diffuse irradiance cubemap generated using cosine-weighted convolution | RGBA16F |
 | `*_brdf_lut.dds` | Split-sum BRDF integration lookup texture | RG16F |
 
 ### Prefiltered Specular Cubemap
 
-<text>Generated using GGX importance sampling. Each mip level represents a different surface roughness, allowing PBR shaders to efficiently approximate specular image-based lighting.</text>
+Generated using GGX importance sampling. Each mip level represents a different surface roughness, allowing PBR shaders to efficiently approximate specular image-based lighting.
 
 The roughness-to-mip mapping is:
 
@@ -38,7 +39,7 @@ float mipLevel = roughness * (mipCount - 1);
 
 ### Diffuse Irradiance Cubemap
 
-<text>Generated using cosine-weighted hemisphere sampling. The output stores irradiance divided by π, so the diffuse lighting calculation is:</text>
+Generated using cosine-weighted hemisphere sampling. The output stores irradiance normalized by π, so diffuse lighting can be evaluated as:
 
 ```hlsl
 float3 diffuse = albedo * irradiance;
@@ -46,7 +47,7 @@ float3 diffuse = albedo * irradiance;
 
 ### BRDF Integration LUT
 
-<text>Generated using split-sum approximation for image-based specular lighting. The two channels store the scale and bias terms used to evaluate the specular BRDF.</text>
+Generated using the split-sum approximation for image-based specular lighting. Its two channels store the scale and bias terms used to evaluate the specular BRDF.
 
 ```hlsl
 float2 brdf = brdfLut.Sample(samplerState, float2(NdotV, roughness));
@@ -54,15 +55,15 @@ float2 brdf = brdfLut.Sample(samplerState, float2(NdotV, roughness));
 float3 specular = prefilteredColor * (F0 * brdf.x + brdf.y);
 ```
 
-## Screenshots
+## Screenshot
 
-![screenshot of iblforge](docs/screenshot.png)
+![iblforge screenshot](docs/screenshot.png)
 
-The application provides a dockable interface with three main areas:
+The application provides a dockable interface with three main panels:
 
-- **IBL Bake** — HDR environment preview and baking settings.
-- **3D View** — Real-time rendering of the selected model.
-- **Material / Lighting** — Material properties, lighting controls, and BRDF LUT inspection.
+- **IBL Bake** — HDR environment preview and baking configuration.
+- **3D View** — Real-time PBR preview of the selected model.
+- **Material / Lighting** — Material properties, lighting controls, and BRDF LUT visualization.
 
 ## Getting Started
 
@@ -71,9 +72,9 @@ The application provides a dockable interface with three main areas:
 - Windows 10 or later
 - Visual Studio 2022 or later
 - CMake 3.21 or later
-- Direct3D 12-compatible GPU (for GPU baking and rendering)
+- A Direct3D 12-compatible GPU (required for GPU baking and 3D preview)
 
-### Build
+### Building
 
 Clone the repository:
 
@@ -94,9 +95,9 @@ Build:
 cmake --build build --config Release
 ```
 
-CMake automatically downloads the required dependencies using FetchContent. It also downloads and converts the sample 3D models during configuration and build.
+CMake automatically downloads the required dependencies through FetchContent. Sample 3D models are also downloaded and converted during configuration and build.
 
-The executable is generated in:
+The executable is generated at:
 
 ```text
 build/Release/iblforge.exe
@@ -110,20 +111,20 @@ Launch the application:
 iblforge.exe
 ```
 
-1. Open an HDR environment map using `File > Open HDRI...` or drag and drop an `.hdr` file onto the window.
+1. Load an HDR environment map using `File > Open HDRI...` or drag and drop an `.hdr` file onto the window.
 2. Configure the baking parameters in the **IBL Bake** panel.
 3. Select CPU or GPU processing.
 4. Click **Bake** to generate the lighting textures.
 5. Inspect the results in the 3D viewer.
-6. Export the textures using `File > Save baked textures...`.
+6. Export the generated textures using `File > Save baked textures...`.
 
 Baked textures remain in memory until explicitly saved.
 
 Previously generated textures can be loaded using `File > Import baked textures...`. Select any one of the three DDS files, and the other two are located automatically.
 
-### Command Line
+### Command-Line Usage
 
-iblforge also supports command-line baking without opening the GUI.
+iblforge supports headless baking, allowing textures to be generated and exported directly from the command line without launching the GUI.
 
 ```bash
 iblforge.exe --bake-only input.hdr output_directory
@@ -135,12 +136,12 @@ Example:
 iblforge.exe --bake-only environment.hdr output --size 256 --samples 2048
 ```
 
-#### Command-line Options
+#### Command-Line Options
 
 | Option | Description | Default |
 |---|---|---|
 | `--bake-only` | Run without opening the GUI and save the results directly | Disabled |
-| `--cpu` | Use CPU baking | GPU |
+| `--cpu` | Use the CPU baking implementation | GPU |
 | `--gpu` | Use Direct3D 12 compute shaders | GPU |
 | `--src N` | Source cubemap resolution | 512 |
 | `--size N` | Prefiltered cubemap resolution | 256 |
@@ -162,31 +163,30 @@ Supported output formats:
 
 The output directory can also be specified as the second positional argument.
 
-## Baking Options
+## Baking
 
-### CPU and GPU Processing
+### CPU and GPU Implementations
 
-iblforge provides two baking implementations.
+iblforge provides two implementations of the IBL baking pipeline.
 
 **CPU**
 
-- Multithreaded processing.
-- Parallel execution across available CPU cores.
-- Useful when GPU compute is unavailable or GPU stability is a concern.
+- Multithreaded processing across available CPU cores.
+- Suitable for systems without GPU compute support or when GPU stability is a concern.
 
 **GPU**
 
-- Direct3D 12 compute shaders.
-- Equirectangular-to-cubemap conversion, mip generation, specular prefiltering, irradiance convolution, and BRDF LUT generation run on the GPU.
-- Uses the same sampling tables as the CPU implementation for consistent results.
-- Splits heavy workloads into smaller dispatch bands to reduce the risk of GPU timeouts.
-- Supports asynchronous execution while keeping the viewer responsive.
+- Powered by Direct3D 12 compute shaders.
+- Performs equirectangular-to-cubemap conversion, mip generation, specular prefiltering, irradiance convolution, and BRDF LUT generation on the GPU.
+- Uses the same sampling tables as the CPU implementation to maintain consistent results.
+- Divides heavy workloads into smaller dispatch batches to reduce the risk of GPU timeouts.
+- Supports asynchronous execution to keep the application responsive.
 
-Both implementations produce the same output formats and file naming conventions. Minor floating-point differences are expected.
+Both implementations support the same output formats and file naming conventions. Minor floating-point differences between CPU and GPU results are expected.
 
 ### Output Formats
 
-The prefiltered and irradiance cubemaps support four formats.
+The prefiltered and irradiance cubemaps support four output formats:
 
 | Format | DXGI Format | Relative Size vs. RGBA32F | Description |
 |---|---|---:|---|
@@ -201,17 +201,17 @@ BC6H compression is performed on the CPU using parallel processing.
 
 ### Canceling a Bake
 
-Baking can be canceled at any time using the **Cancel** button.
+An ongoing baking operation can be canceled at any time using the **Cancel** button.
 
-The CPU and GPU implementations check for cancellation between processing batches. A canceled operation discards its partial result and preserves the previously completed bake.
+Both CPU and GPU implementations check for cancellation between processing batches. When canceled, partial results are discarded and the previously completed bake is preserved.
 
-## 3D Viewer
+## 3D Preview
 
-iblforge includes a Direct3D 12 PBR viewer for inspecting generated IBL textures.
+iblforge includes a Direct3D 12-based PBR viewer for inspecting generated IBL textures.
 
 ### Sample Models
 
-The viewer includes several sample models:
+The viewer includes the following sample models:
 
 | Model | Description |
 |---|---|
@@ -221,11 +221,9 @@ The viewer includes several sample models:
 | Lucy | High-detail scanned model |
 | Sphere | Built-in fallback model |
 
-The sample models are downloaded from [alecjacobson/common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models) at a pinned commit.
+The sample models are sourced from [alecjacobson/common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models) at a pinned commit.
 
-They are converted into an optimized binary mesh format during the build process.
-
-### Interaction
+### Controls
 
 | Input | Action |
 |---|---|
@@ -236,26 +234,7 @@ They are converted into an optimized binary mesh format during the build process
 | `CTRL + S` | Save baked textures |
 | `CTRL + I` | Import baked textures |
 
-The interface uses Dear ImGui docking, allowing panels to be rearranged, split, and tabbed.
-
-### Temporal Anti-Aliasing
-
-The 3D viewer supports Temporal Anti-Aliasing (TAA).
-
-- Halton(2,3) subpixel jitter.
-- Motion-vector-based temporal reprojection.
-- History clamping using the current frame's local color distribution.
-- Adaptive blending based on pixel motion.
-
-TAA can be enabled or disabled in the **Material / Lighting** panel.
-
-### Event-Driven Rendering
-
-The application uses an event-driven rendering loop instead of continuously rendering every frame.
-
-Rendering is triggered by user input, window events, active baking, and other visual updates. When idle, the application waits for operating system messages, keeping CPU and GPU usage low.
-
-Continuous rendering can be enabled for performance benchmarking.
+The interface uses Dear ImGui Docking, allowing panels to be rearranged, split, and organized into tabs.
 
 ## Technical Details
 
@@ -263,7 +242,7 @@ Continuous rendering can be enabled for performance benchmarking.
 
 iblforge uses a left-handed, Y-up coordinate system compatible with Direct3D.
 
-The equirectangular mapping is:
+The equirectangular mapping is defined as:
 
 ```cpp
 u = 0.5f + atan2(x, z) / (2.0f * PI);
@@ -272,28 +251,11 @@ v = acos(y) / PI;
 
 The center of the environment map corresponds to the positive Z direction.
 
-Cubemap face order follows Direct3D's `TextureCube` convention:
+Cubemap face ordering follows the Direct3D `TextureCube` convention:
 
 ```text
 +X, -X, +Y, -Y, +Z, -Z
 ```
-
-### Mesh Processing
-
-Sample OBJ models are converted into an optimized binary `.mesh` format using the `meshforge` build tool.
-
-The conversion pipeline includes:
-
-1. OBJ loading and triangulation using rapidobj.
-2. Smooth normal generation when normals are missing.
-3. Vertex deduplication based on position and normal.
-4. Model normalization.
-5. Coordinate system conversion.
-6. Vertex cache optimization.
-7. Overdraw optimization.
-8. Vertex fetch optimization.
-
-The resulting mesh files are loaded directly into GPU buffers at runtime. OBJ parsing is not required by the main application.
 
 ## Dependencies
 
@@ -306,4 +268,4 @@ iblforge uses the following third-party libraries:
 | [rapidobj](https://github.com/guybrush77/rapidobj) | OBJ loading for the build-time mesh converter | v1.1 |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | Mesh optimization for the build-time mesh converter | v1.3 |
 
-Dependencies are downloaded automatically through CMake FetchContent.
+All dependencies are automatically downloaded through CMake FetchContent.
