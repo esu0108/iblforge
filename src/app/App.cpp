@@ -6,12 +6,14 @@
 
 #include "app/RenderSync.h"
 #include "app/ViewInput.h"
+#include "i18n/I18n.h"
 #include "ui/UiContext.h"
 
 void App::Initialize( MainWindow& window, const CmdLine& cmd )
 {
 	m_hwnd = window.Handle();
 	m_dpiScale = window.DpiScale();
+	i18n::Init(); // UI の言語 (language.txt / OS の言語)
 	m_model.settings = cmd.settings;
 	m_model.results.saveDir = cmd.output; // 引数の outputDir は、保存ダイアログの初期フォルダとして使う
 

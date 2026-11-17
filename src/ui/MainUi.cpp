@@ -4,6 +4,8 @@
 
 #include <cstdio>
 
+#include "i18n/I18n.h"
+
 #include "ui/UiLayout.h"
 
 // レイアウト:  左 = IBL Bake (入力・設定)   中央 = 3D View   右 = Material / Lighting (オブジェクト・マテリアル・表示)
@@ -34,18 +36,18 @@ namespace ui
 
 		if( m.view.showBakePanel )
 		{
-			if( ImGui::Begin( kPanelBake, &m.view.showBakePanel ) ) DrawBakePanel( ctx );
+			if( ImGui::Begin( PanelTitle( Panel::Bake ), &m.view.showBakePanel ) ) DrawBakePanel( ctx );
 			ImGui::End();
 		}
 
-		char overlay[128];
+		char overlay[256];
 		if( ctx.renderer.IsIBLReady() )
 		{
-			if( m.view.alwaysRender ) std::snprintf( overlay, sizeof( overlay ), "%.1f FPS    Drag: orbit   Wheel: zoom   TAB: hide UI", ImGui::GetIO().Framerate );
-			else                      std::snprintf( overlay, sizeof( overlay ), "Drag: orbit   Wheel: zoom   TAB: hide UI" );
+			if( m.view.alwaysRender ) std::snprintf( overlay, sizeof( overlay ), i18n::Tr( i18n::Str::OverlayFps ), ImGui::GetIO().Framerate );
+			else                      std::snprintf( overlay, sizeof( overlay ), "%s", i18n::Tr( i18n::Str::OverlayHelp ) );
 		}
 		else
-			std::snprintf( overlay, sizeof( overlay ), "File > Open... to load an HDRI, then press Bake in \"%s\".", kPanelBake );
+			std::snprintf( overlay, sizeof( overlay ), i18n::Tr( i18n::Str::OverlayNoIbl ), PanelLabel( Panel::Bake ) );
 		const ViewInfo v = DrawViewPanel( ctx.dpiScale, overlay );
 		scene.viewX = v.x;
 		scene.viewY = v.y;
@@ -56,7 +58,7 @@ namespace ui
 
 		if( m.view.showMaterialPanel )
 		{
-			if( ImGui::Begin( kPanelMaterial, &m.view.showMaterialPanel ) ) DrawMaterialPanel( ctx );
+			if( ImGui::Begin( PanelTitle( Panel::Material ), &m.view.showMaterialPanel ) ) DrawMaterialPanel( ctx );
 			ImGui::End();
 		}
 	}

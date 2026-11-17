@@ -2,10 +2,32 @@
 
 #include <algorithm>
 
+#include <string>
+
+#include "i18n/I18n.h"
 #include <imgui_internal.h> // DockBuilder (まだ公開 API ではないが docking の既定配置に必要)
 
 namespace ui
 {
+	const char* PanelLabel( Panel p )
+	{
+		static const i18n::Str ids[] = { i18n::Str::PanelBake, i18n::Str::PanelView, i18n::Str::PanelMaterial };
+		return i18n::Tr( ids[static_cast<int>( p )] );
+	}
+
+	const char* PanelTitle( Panel p )
+	{
+		static const char* const keys[] = { "###IBLBake", "###View3D", "###MaterialLighting" };
+		static std::string cache[3];
+		static i18n::Lang lang = i18n::Lang::Count;
+		if( lang != i18n::Current() )
+		{
+			lang = i18n::Current();
+			for( int i = 0; i < 3; ++i ) cache[i] = std::string( PanelLabel( static_cast<Panel>( i ) ) ) + keys[i];
+		}
+		return cache[static_cast<int>( p )].c_str();
+	}
+
 	void BuildDefaultLayout( ImGuiID dockspaceId, ImVec2 size, float dpiScale )
 	{
 		ImGui::DockBuilderRemoveNode( dockspaceId ); // 既存の配置を破棄 (Reset layout 用)
@@ -22,9 +44,9 @@ namespace ui
 		ImGui::DockBuilderSplitNode( dockspaceId, ImGuiDir_Left, leftRatio, &left, &rest );
 		ImGui::DockBuilderSplitNode( rest, ImGuiDir_Right, rightRatio, &right, &center );
 
-		ImGui::DockBuilderDockWindow( kPanelBake, left );
-		ImGui::DockBuilderDockWindow( kPanelView, center );
-		ImGui::DockBuilderDockWindow( kPanelMaterial, right );
+		ImGui::DockBuilderDockWindow( PanelTitle( Panel::Bake ), left );
+		ImGui::DockBuilderDockWindow( PanelTitle( Panel::View ), center );
+		ImGui::DockBuilderDockWindow( PanelTitle( Panel::Material ), right );
 		ImGui::DockBuilderFinish( dockspaceId );
 	}
 
@@ -63,7 +85,7 @@ namespace ui
 		ImGui::SetNextWindowClass( &cls );
 
 		ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0.0f, 0.0f ) );
-		ImGui::Begin( kPanelView, nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground );
+		ImGui::Begin( PanelTitle( Panel::View ), nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground );
 		ImGui::PopStyleVar();
 
 		ViewInfo v;
@@ -81,8 +103,10 @@ namespace ui
 			v.active = ImGui::IsItemActive();
 			if( overlayText && overlayText[0] )
 			{
-				ImGui::GetWindowDrawList()->AddText( ImVec2( pos.x + 8.0f * dpiScale, pos.y + 6.0f * dpiScale ),
-													 ImGui::GetColorU32( ImGuiCol_Text, 0.55f ), overlayText );
+				// 長い翻訳でもビューの幅で折り返す (AddText は折り返し幅を渡さないとはみ出す)
+				const float wrapW = std::max( v.w - 16.0f * dpiScale, 32.0f );
+				ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(), ImGui::GetFontSize(), ImVec2( pos.x + 8.0f * dpiScale, pos.y + 6.0f * dpiScale ),
+													 ImGui::GetColorU32( ImGuiCol_Text, 0.55f ), overlayText, nullptr, wrapW );
 			}
 		}
 		ImGui::End();

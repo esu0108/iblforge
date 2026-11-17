@@ -8,6 +8,7 @@ iblforge converts panoramic HDR environment maps into PBR-ready lighting texture
 
 - **Complete IBL baking** — Generate prefiltered specular cubemaps, diffuse irradiance cubemaps, and BRDF integration LUTs.
 - **CPU & GPU acceleration** — Choose between a multithreaded CPU implementation and Direct3D 12 compute shaders.
+- **Multilingual UI** — English, 日本語, 简体中文, 한국어, Español, Français, Deutsch, Русский. Switch from the **Language** menu (saved to `language.txt` next to the exe; defaults to the OS language). Add a language by editing `src/i18n/I18nStrings.inc` and `Lang` in `src/i18n/I18n.h`.
 - **Real-time preview** — Inspect baked lighting on 3D models with adjustable materials and lighting parameters.
 - **Multiple output formats** — Export HDR cubemaps in RGBA16F, RGBA32F, R11G11B10F, or BC6H.
 - **Configurable baking** — Adjust texture resolutions, sampling counts, and firefly clamping.

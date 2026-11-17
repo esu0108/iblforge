@@ -60,7 +60,7 @@ struct UserRequests
 struct AppModel
 {
 	ibl::BakeSettings settings;
-	std::string status = "Open an HDRI with File > Open... (or drop a .hdr file onto the window).";
+	std::string status;             // 空のときは UI が (言語に合わせた) 初期メッセージを表示する
 	HdrDocument hdr;
 	BakeResults results;
 	SceneParams scene;

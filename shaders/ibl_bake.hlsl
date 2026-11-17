@@ -38,12 +38,14 @@ static const float PI = 3.14159265359;
 // u,v は [-1,1]、v は画像の下方向が +。
 float3 FaceUVToDir(uint face, float u, float v)
 {
-    if (face == 0) return float3( 1.0, -v, -u);
-    if (face == 1) return float3(-1.0, -v,  u);
-    if (face == 2) return float3(   u, 1.0,  v);
-    if (face == 3) return float3(   u, -1.0, -v);
-    if (face == 4) return float3(   u, -v, 1.0);
-    return float3(-u, -v, -1.0);
+    // 戻り値は 1 か所で返す (早期 return の連続だと、コンパイラが「未初期化の可能性」と警告する)
+    float3 d = float3(-u, -v, -1.0); // face == 5
+    if      (face == 0) d = float3( 1.0, -v, -u);
+    else if (face == 1) d = float3(-1.0, -v,  u);
+    else if (face == 2) d = float3(   u, 1.0,  v);
+    else if (face == 3) d = float3(   u, -1.0, -v);
+    else if (face == 4) d = float3(   u, -v, 1.0);
+    return d;
 }
 
 float RadicalInverse(uint i)
@@ -71,7 +73,8 @@ void MakeBasis(float3 N, out float3 T, out float3 B)
 float3 EquirectTexel(int x, int y)
 {
     int w = (int)gEqWidth, h = (int)gEqHeight;
-    x = ((x % w) + w) % w;          // 経度はラップ
+    // 経度はラップ。呼び出し側の x は [-1, w] の範囲なので、整数の剰余 (遅い) を使わず 1 回の加減算で足りる
+    x = x < 0 ? x + w : (x >= w ? x - w : x);
     y = clamp(y, 0, h - 1);         // 緯度はクランプ
     return gEquirect.Load(int3(x, y, 0)).rgb;
 }

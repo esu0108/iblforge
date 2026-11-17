@@ -3,30 +3,31 @@
 #include <cstdio>
 
 #include "Common.h"
+#include "i18n/I18n.h"
 
 void BakeWorkflow::OpenHdr( const std::filesystem::path& path, bool thenBake )
 {
-	if( IsLoading() ) { m_model.status = "Another HDRI is still loading."; return; }
+	if( IsLoading() ) { m_model.status = i18n::Tr( i18n::Str::AnotherLoading ); return; }
 	m_bakeAfterLoad = thenBake;
-	m_model.status = "Loading " + util::PathToUtf8( path.filename() ) + " ...";
+	m_model.status = i18n::Fmt( i18n::Str::LoadingFile, util::PathToUtf8( path.filename() ).c_str() );
 	m_loader.Start( path );
 }
 
 void BakeWorkflow::StartBake()
 {
-	if( !m_model.hdr.Loaded() ) { m_model.status = "Open an HDRI first (File > Open...)."; return; }
+	if( !m_model.hdr.Loaded() ) { m_model.status = i18n::Tr( i18n::Str::OpenFirst ); return; }
 	ibl::BakeJob job;
 	job.hdr      = m_model.hdr.image;
 	job.stem     = m_model.hdr.path.stem().wstring();
 	job.settings = m_model.settings;
 	job.device   = m_renderer.Device(); // GPU ベイクはビューアと同じ D3D12 デバイスを使う (ワークフローは Renderer より先に破棄される)
-	if( m_bake.Start( std::move( job ) ) ) m_model.status = "Baking...";
+	if( m_bake.Start( std::move( job ) ) ) m_model.status = i18n::Tr( i18n::Str::Baking );
 }
 
 bool BakeWorkflow::ShowBaked( ibl::BakedTextures baked )
 {
 	std::string err;
-	if( !m_renderer.LoadIBL( baked, err ) ) { m_model.status = "Upload failed: " + err; return false; }
+	if( !m_renderer.LoadIBL( baked, err ) ) { m_model.status = i18n::Fmt( i18n::Str::UploadFailed, err.c_str() ); return false; }
 	m_model.results.baked = std::move( baked );
 	m_model.results.hasBaked = true;
 	m_model.results.bakedSaved = false;
@@ -36,27 +37,27 @@ bool BakeWorkflow::ShowBaked( ibl::BakedTextures baked )
 void BakeWorkflow::ImportFiles( const ibl::BakeOutputs& o )
 {
 	std::string err;
-	if( !m_renderer.LoadIBL( o.prefilteredCube, o.brdfLut, o.irradianceCube, err ) ) { m_model.status = "Import failed: " + err; return; }
+	if( !m_renderer.LoadIBL( o.prefilteredCube, o.brdfLut, o.irradianceCube, err ) ) { m_model.status = i18n::Fmt( i18n::Str::ImportFailed, err.c_str() ); return; }
 	BakeResults& r = m_model.results;
 	r.outputs = o;
 	r.hasOutputs = true;
 	r.baked = ibl::BakedTextures{};
 	r.hasBaked = false;
 	r.bakedSaved = false;
-	m_model.status = "Imported baked textures from: " + util::PathToUtf8( o.prefilteredCube.parent_path() );
+	m_model.status = i18n::Fmt( i18n::Str::Imported, util::PathToUtf8( o.prefilteredCube.parent_path() ).c_str() );
 }
 
 void BakeWorkflow::SaveTo( const std::filesystem::path& dir )
 {
 	ibl::BakeOutputs o;
 	std::string err;
-	if( !ibl::SaveBaked( m_model.results.baked, dir, o, err ) ) { m_model.status = "Save failed: " + err; return; }
+	if( !ibl::SaveBaked( m_model.results.baked, dir, o, err ) ) { m_model.status = i18n::Fmt( i18n::Str::SaveFailed, err.c_str() ); return; }
 	BakeResults& r = m_model.results;
 	r.outputs = o;
 	r.hasOutputs = true;
 	r.bakedSaved = true;
 	r.saveDir = dir;
-	m_model.status = "Saved 3 files to: " + util::PathToUtf8( dir );
+	m_model.status = i18n::Fmt( i18n::Str::SavedTo, util::PathToUtf8( dir ).c_str() );
 }
 
 void BakeWorkflow::Poll()
@@ -72,7 +73,7 @@ void BakeWorkflow::OnLoadFinished( HdrLoadResult& r )
 {
 	if( !r.ok )
 	{
-		m_model.status = "Failed to open HDRI: " + r.err;
+		m_model.status = i18n::Fmt( i18n::Str::OpenFailed, r.err.c_str() );
 		m_bakeAfterLoad = false;
 		return;
 	}
@@ -82,7 +83,7 @@ void BakeWorkflow::OnLoadFinished( HdrLoadResult& r )
 	d.preview = std::move( r.preview );
 	d.previewEV = d.preview.autoEV;
 	d.previewDirty = true;
-	m_model.status = "Opened " + util::PathToUtf8( d.path.filename() ) + ". Press Bake.";
+	m_model.status = i18n::Fmt( i18n::Str::Opened, util::PathToUtf8( d.path.filename() ).c_str() );
 	if( m_bakeAfterLoad ) StartBake();
 	m_bakeAfterLoad = false;
 }
@@ -94,12 +95,10 @@ void BakeWorkflow::OnBakeFinished( BakeController::State state )
 	double sec = 0.0;
 	bool usedGpu = false;
 	m_bake.Take( out, err, sec, usedGpu );
-	if( state == BakeController::State::Canceled ) { m_model.status = "Bake canceled."; return; }
-	if( state == BakeController::State::Failed ) { m_model.status = "Bake failed: " + err; return; }
+	if( state == BakeController::State::Canceled ) { m_model.status = i18n::Tr( i18n::Str::BakeCanceled ); return; }
+	if( state == BakeController::State::Failed ) { m_model.status = i18n::Fmt( i18n::Str::BakeFailed, err.c_str() ); return; }
 	if( ShowBaked( std::move( out ) ) )
 	{
-		char buf[160];
-		std::snprintf( buf, sizeof( buf ), "Bake finished on %s in %.2f s (%s). Not saved yet: use File > Save...", usedGpu ? "GPU" : "CPU", sec, ibl::CubeFormatName( m_model.settings.cubeFormat ) );
-		m_model.status = buf;
+		m_model.status = i18n::Fmt( i18n::Str::BakeFinished, usedGpu ? "GPU" : "CPU", sec, ibl::CubeFormatName( m_model.settings.cubeFormat ) );
 	}
 }

@@ -64,11 +64,14 @@ struct PSOut
 
 float2 MotionPixels(float4 curClip, float4 prevClip)
 {
-    if (curClip.w <= 1e-5 || prevClip.w <= 1e-5)
-        return float2(0.0, 0.0); // 画面外 / 背後 (履歴は TaaResolver の範囲チェックで捨てられる)
-    float2 cur  = curClip.xy / curClip.w;
-    float2 prev = prevClip.xy / prevClip.w;
-    return (prev - cur) * float2(0.5 * gRect.x, -0.5 * gRect.y);
+    float2 motion = float2(0.0, 0.0); // 画面外 / 背後は 0 (履歴は TaaResolver の範囲チェックで捨てられる)
+    if (curClip.w > 1e-5 && prevClip.w > 1e-5)
+    {
+        float2 cur  = curClip.xy / curClip.w;
+        float2 prev = prevClip.xy / prevClip.w;
+        motion = (prev - cur) * float2(0.5 * gRect.x, -0.5 * gRect.y);
+    }
+    return motion;
 }
 
 // ---------------------------------------------------------------- 球体

@@ -39,7 +39,9 @@ namespace mesh
 		{
 #ifdef _WIN32
 			( void )modeA;
-			return FilePtr( _wfopen( path.c_str(), modeW ) );
+			std::FILE* f = nullptr;
+			if( _wfopen_s( &f, path.c_str(), modeW ) != 0 ) f = nullptr;
+			return FilePtr( f );
 #else
 			( void )modeW;
 			return FilePtr( std::fopen( path.string().c_str(), modeA ) );

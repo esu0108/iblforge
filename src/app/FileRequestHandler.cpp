@@ -4,9 +4,26 @@
 
 #include "app/FileDialogs.h"
 #include "bake/BakedFileNames.h"
+#include "i18n/I18n.h"
 
 namespace
 {
+	std::wstring Wide( i18n::Str id ) { return util::Utf8ToWide( i18n::Tr( id ) ); }
+
+	// ダイアログのフィルター ("説明\0パターン\0...\0\0" 形式のダブルヌル終端)。std::wstring は内部に \0 を持てる
+	std::wstring Filter( i18n::Str desc, const wchar_t* pattern )
+	{
+		std::wstring f = Wide( desc );
+		f.push_back( L'\0' );
+		f += pattern;
+		f.push_back( L'\0' );
+		f += Wide( i18n::Str::DlgAllFiles );
+		f.push_back( L'\0' );
+		f += L"*.*";
+		f.push_back( L'\0' );
+		return f; // c_str() の後ろにもう 1 つ終端の \0 が付くのでダブルヌルになる
+	}
+
 	// 3 つの DDS のうちどれか 1 つから残りを割り出してインポートする
 	void ImportFromFile( const std::filesystem::path& file, AppModel& model, BakeWorkflow& workflow )
 	{
@@ -18,10 +35,10 @@ namespace
 			workflow.ImportFiles( o );
 			break;
 		case ibl::DeriveResult::Status::MissingFile:
-			model.status = "Import failed: File not found: " + util::PathToUtf8( r.missing );
+			model.status = i18n::Fmt( i18n::Str::ImportNotFound, util::PathToUtf8( r.missing ).c_str() );
 			break;
 		case ibl::DeriveResult::Status::NotBakedName:
-			model.status = "Import failed: Select one of <name>_prefiltered.dds / <name>_brdf_lut.dds / <name>_irradiance.dds.";
+			model.status = i18n::Tr( i18n::Str::ImportBadName );
 			break;
 		}
 	}
@@ -42,14 +59,14 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 	if( req.open )
 	{
 		req.open = false;
-		const auto f = PickOpenFile( owner, L"Open HDRI", L"HDR image (*.hdr)\0*.hdr\0All files (*.*)\0*.*\0" );
+		const auto f = PickOpenFile( owner, Wide( i18n::Str::DlgOpenHdri ).c_str(), Filter( i18n::Str::DlgHdrFilter, L"*.hdr" ).c_str() );
 		ReleaseInputAfterDialog();
 		if( f ) workflow.OpenHdr( *f );
 	}
 	if( req.import )
 	{
 		req.import = false;
-		const auto f = PickOpenFile( owner, L"Import baked textures (select any one of the 3 files)", L"Baked texture (*.dds)\0*.dds\0All files (*.*)\0*.*\0" );
+		const auto f = PickOpenFile( owner, Wide( i18n::Str::DlgImportTitle ).c_str(), Filter( i18n::Str::DlgDdsFilter, L"*.dds" ).c_str() );
 		ReleaseInputAfterDialog();
 		if( f ) ImportFromFile( *f, model, workflow );
 	}
@@ -58,7 +75,7 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 		req.save = false;
 		if( model.results.hasBaked )
 		{
-			const auto d = PickFolder( owner, model.results.saveDir, L"Select the folder to save the 3 baked textures" );
+			const auto d = PickFolder( owner, model.results.saveDir, Wide( i18n::Str::DlgSaveTitle ).c_str() );
 			ReleaseInputAfterDialog();
 			if( d ) workflow.SaveTo( *d );
 		}
@@ -70,6 +87,6 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 		const std::filesystem::path dropped = req.droppedFile;
 		req.droppedFile.clear();
 		if( _wcsicmp( dropped.extension().c_str(), L".hdr" ) == 0 ) workflow.OpenHdr( dropped );
-		else model.status = "Only .hdr files can be opened.";
+		else model.status = i18n::Tr( i18n::Str::OnlyHdr );
 	}
 }

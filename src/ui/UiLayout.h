@@ -13,10 +13,10 @@
 
 namespace ui
 {
-	// docking の ID にもなるのでパネル名は定数化する (変更すると保存済みの ini の配置と対応しなくなる)
-	inline constexpr const char* kPanelBake     = "IBL Bake";
-	inline constexpr const char* kPanelView     = "3D View";
-	inline constexpr const char* kPanelMaterial = "Material / Lighting";
+	// パネル。タイトルは言語に追従するが、ImGui のウィンドウ ID / docking の配置は "###" 以降 (固定) だけで決まる
+	enum class Panel { Bake, View, Material };
+	const char* PanelTitle( Panel p ); // ImGui::Begin / DockBuilderDockWindow 用 ("<翻訳>###<固定 ID>")
+	const char* PanelLabel( Panel p ); // 表示用 (メニュー項目や案内文)。翻訳のみ
 
 	// ドックスペース (画面全体) を開始する。メインメニューバーを出した「後」に呼ぶこと (作業領域から差し引かれるため)。
 	// 初回 (ini に配置が無いとき) と resetLayout = true のときは既定の 3 ペイン配置を構築する。
