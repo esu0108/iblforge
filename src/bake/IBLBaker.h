@@ -82,6 +82,47 @@ namespace ibl
 		bool     useGpu = true;      // true (既定) なら Direct3D 12 の Compute Shader で生成 (IBLBakerGpu.cpp)
 	};
 
+	// ベイク品質のプリセット。Custom は「プリセットの値から手動で変更した状態」を表し、ApplyBakePreset では何も変えない。
+	enum class BakePreset
+	{
+		Low,
+		Medium, // BakeSettings の既定値と同じ
+		High,
+		Ultra,
+		Custom
+	};
+
+	// プリセットが管理する項目 (サイズ / サンプル数) だけを上書きする。
+	// 出力形式・処理装置・スレッド数・サンプルクランプは環境や好みの設定なので変えない。
+	inline void ApplyBakePreset( BakeSettings& s, BakePreset preset )
+	{
+		struct Values { uint32_t src, pf, pfSamples, lut, lutSamples, irr, irrSamples; };
+		Values v;
+		switch( preset )
+		{
+		case BakePreset::Low:    v = { 256,  128, 256,   128, 256,  16,  512 };   break;
+		case BakePreset::Medium: v = { 512,  256, 1024,  256, 1024, 32,  2048 };  break;
+		case BakePreset::High:   v = { 1024, 512, 4096,  256, 2048, 64,  4096 };  break;
+		case BakePreset::Ultra:  v = { 2048, 1024, 16384, 512, 8192, 128, 16384 }; break;
+		default: return; // Custom
+		}
+		s.sourceCubeSize = v.src;
+		s.prefilterSize = v.pf;
+		s.prefilterSamples = v.pfSamples;
+		s.lutSize = v.lut;
+		s.lutSamples = v.lutSamples;
+		s.irradianceSize = v.irr;
+		s.irradianceSamples = v.irrSamples;
+	}
+
+	// プリセットが管理する項目が全て同じか (手動変更の検出用)
+	inline bool SamePresetFields( const BakeSettings& a, const BakeSettings& b )
+	{
+		return a.sourceCubeSize == b.sourceCubeSize && a.prefilterSize == b.prefilterSize && a.prefilterSamples == b.prefilterSamples
+			&& a.lutSize == b.lutSize && a.lutSamples == b.lutSamples
+			&& a.irradianceSize == b.irradianceSize && a.irradianceSamples == b.irradianceSamples;
+	}
+
 	// stage は文字列リテラルを渡す。複数スレッドから呼ばれ得るのでスレッドセーフな実装にすること。
 	// コールバックから BakeCancelled を投げるとベイクを中断できる (ParallelFor はワーカーの例外を呼び出し元へ伝える)。
 	using ProgressFn = std::function<void( const char* stage, float progress01 )>;

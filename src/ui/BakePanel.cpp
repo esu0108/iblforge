@@ -93,6 +93,30 @@ namespace ui
 				s.useGpu = ( device == 1 );
 				if( s.useGpu ) TextDisabledWrapped( T( Str::GpuNote ) );
 			}
+			// プリセット: 幅いっぱいのボタン列 (選択中だけ強調)。押すとサイズ / サンプル数がプリセットの値になる。
+			// その後にどれかを手動で変えると、どのボタンも選択されず Custom と表示する。
+			ImGui::SeparatorText( T( Str::BakePresetLabel ) );
+			{
+				static const ibl::BakePreset presets[] = { ibl::BakePreset::Low, ibl::BakePreset::Medium, ibl::BakePreset::High, ibl::BakePreset::Ultra };
+				const char* const names[] = { T( Str::PresetLow ), T( Str::PresetMedium ), T( Str::PresetHigh ), T( Str::PresetUltra ) };
+				const ImGuiStyle& style = ImGui::GetStyle();
+				const float btnW = std::max( ( ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 3.0f ) / 4.0f, 16.0f );
+				for( int i = 0; i < 4; ++i )
+				{
+					if( i > 0 ) ImGui::SameLine();
+					const bool sel = ( presets[i] == ctx.model.bakePreset );
+					if( sel ) ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyleColorVec4( ImGuiCol_ButtonActive ) );
+					if( ImGui::Button( names[i], ImVec2( btnW, 0.0f ) ) )
+					{
+						ctx.model.bakePreset = presets[i];
+						ibl::ApplyBakePreset( s, presets[i] );
+					}
+					if( sel ) ImGui::PopStyleColor();
+				}
+				if( ctx.model.bakePreset == ibl::BakePreset::Custom ) TextDisabledWrapped( T( Str::PresetCustom ) );
+			}
+			ImGui::SeparatorText( T( Str::DetailParams ) );
+			const ibl::BakeSettings beforeEdit = s; // 以降の項目が手動で変更されたかを調べるための基準
 			static const uint32_t srcSizes[] = { 128, 256, 512, 1024, 2048 };
 			static const uint32_t pfSizes[]  = { 64, 128, 256, 512, 1024 };
 			static const uint32_t lutSizes[] = { 64, 128, 256, 512 };
@@ -122,8 +146,16 @@ namespace ui
 			if( ImGui::InputInt( T( Str::LutSamples ), &ls, 128, 1024 ) ) s.lutSamples = static_cast<uint32_t>( std::clamp( ls, 16, 16384 ) );
 			ImGui::InputFloat( T( Str::SampleClamp ), &s.maxSampleValue, 10.0f, 100.0f, "%.1f" );
 			s.maxSampleValue = std::max( 0.0f, s.maxSampleValue );
+			if( !ibl::SamePresetFields( beforeEdit, s ) ) ctx.model.bakePreset = ibl::BakePreset::Custom;
 			ImGui::BeginDisabled( !ctx.model.hdr.Loaded() );
-			if( ImGui::Button( T( Str::Bake ) ) ) ctx.workflow.StartBake();
+			// 主ボタン: 幅いっぱい・高め・アクセントカラーで目立たせる (無効時は BeginDisabled で自動的に薄くなる)
+			ImGui::Spacing();
+			ImGui::PushStyleColor( ImGuiCol_Button,        ImVec4( 0.16f, 0.55f, 0.30f, 1.0f ) );
+			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.20f, 0.66f, 0.36f, 1.0f ) );
+			ImGui::PushStyleColor( ImGuiCol_ButtonActive,  ImVec4( 0.12f, 0.45f, 0.25f, 1.0f ) );
+			ImGui::PushStyleColor( ImGuiCol_Text,          ImVec4( 1.0f, 1.0f, 1.0f, 1.0f ) );
+			if( ImGui::Button( T( Str::Bake ), ImVec2( ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight() * 1.6f ) ) ) ctx.workflow.StartBake();
+			ImGui::PopStyleColor( 4 );
 			ImGui::EndDisabled();
 			ImGui::EndDisabled(); // running
 		}
@@ -134,8 +166,7 @@ namespace ui
 			const AppModel& m = ctx.model;
 			const BakeResults& r = m.results;
 
-			// ベイク結果は File > Save... で初めてファイルになる
-			ImGui::SameLine();
+			// ベイク結果は File > Save... で初めてファイルになる (Bake ボタンは幅いっぱいなので、保存状態はその下の行に出す)
 			if( !r.hasBaked )        TextDisabledWrapped( T( Str::NothingToSave ) );
 			else if( r.bakedSaved )  TextDisabledWrapped( T( Str::Saved ) );
 			else                     TextColoredWrapped( ImVec4( 1.0f, 0.75f, 0.25f, 1.0f ), T( Str::NotSavedYet ) );

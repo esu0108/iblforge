@@ -60,6 +60,7 @@ struct UserRequests
 struct AppModel
 {
 	ibl::BakeSettings settings;
+	ibl::BakePreset bakePreset = ibl::BakePreset::Medium; // 既定の settings は Medium と一致。手動で値を変えると Custom になる
 	std::string status;             // 空のときは UI が (言語に合わせた) 初期メッセージを表示する
 	HdrDocument hdr;
 	BakeResults results;
