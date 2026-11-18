@@ -132,7 +132,10 @@ namespace ibl
 
 			ComPtr<ID3D12Resource> irrTex = Irradiance( srcCube.Get(), srcMips, sampleBuf.Get(), sampleTotal, st, s.irradianceSize );
 			ComPtr<ID3D12Resource> pfTex = Prefilter( srcCube.Get(), srcMips, sampleBuf.Get(), sampleTotal, st, pfSize, pfMips );
-			ComPtr<ID3D12Resource> lutTex = BrdfLut( s.lutSize, s.lutSamples );
+			// BRDF LUT は HDRI に依存しない。呼び出し側が計算済みの LUT を out.brdfLut に入れて渡した場合は、GPU 計算と読み戻しを省く。
+			const bool lutCached = out.brdfLut.size() == static_cast<size_t>( s.lutSize ) * s.lutSize * 2;
+			ComPtr<ID3D12Resource> lutTex;
+			if( !lutCached ) lutTex = BrdfLut( s.lutSize, s.lutSamples );
 
 			// ---------------- 読み戻し
 			m_stage.Notify( "Reading back (GPU)", 0.0f );
@@ -140,7 +143,7 @@ namespace ibl
 			m_stage.Notify( "Reading back (GPU)", 0.4f );
 			out.prefiltered = ReadbackCube( m_ctx, pfTex.Get(), pfSize, pfMips );
 			m_stage.Notify( "Reading back (GPU)", 0.9f );
-			out.brdfLut = ReadbackLut( m_ctx, lutTex.Get(), s.lutSize );
+			if( !lutCached ) out.brdfLut = ReadbackLut( m_ctx, lutTex.Get(), s.lutSize );
 			m_stage.Notify( "Reading back (GPU)", 1.0f );
 		}
 	} // namespace gpu

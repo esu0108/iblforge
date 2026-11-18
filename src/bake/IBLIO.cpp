@@ -10,6 +10,10 @@
 #include <atomic>
 #include <cstring>
 #include <fstream>
+#include <future>
+#include <map>
+#include <mutex>
+#include <tuple>
 
 #include "Common.h"
 #include "ExrDecode.h"
@@ -35,6 +39,27 @@ namespace ibl
 		{
 			v = std::min( std::max( v, 0.0f ), 65504.0f ); // inf 化を防ぐ
 			return DirectX::PackedVector::XMConvertFloatToHalf( v );
+		}
+
+		// BRDF LUT は HDRI に依存せず (サイズ, サンプル数, 計算装置) だけで決まるので、同じ条件の再ベイクでは使い回す。
+		// CPU / GPU で浮動小数の結果がわずかに違い得るため、装置も鍵に含める。
+		using LutKey = std::tuple<uint32_t, uint32_t, bool>;
+		std::mutex g_lutMutex;
+		std::map<LutKey, std::vector<float>> g_lutCache;
+
+		bool FindCachedLut( const LutKey& k, std::vector<float>& out )
+		{
+			std::lock_guard<std::mutex> lock( g_lutMutex );
+			const auto it = g_lutCache.find( k );
+			if( it == g_lutCache.end() ) return false;
+			out = it->second;
+			return true;
+		}
+		void StoreCachedLut( const LutKey& k, const std::vector<float>& lut )
+		{
+			std::lock_guard<std::mutex> lock( g_lutMutex );
+			if( g_lutCache.size() >= 4 ) g_lutCache.clear(); // 設定を変えながら試しても肥大しないよう小さく保つ
+			g_lutCache[k] = lut;
 		}
 	} // namespace
 
@@ -271,14 +296,24 @@ namespace ibl
 
 			CubeMap irradiance, prefiltered;
 			std::vector<float> lut;
+			SH9 sh;
+			const LutKey lutKey{ s.lutSize, s.lutSamples, s.useGpu };
+			const bool lutCached = FindCachedLut( lutKey, lut );
 			if( s.useGpu )
 			{
+				// SH (L2) は HDRI から直接求める (CPU / GPU どちらのベイクでも同じ。BakeSettings のサンプルクランプも Irradiance と同様に掛ける)。
+				// GPU ベイク中 CPU は待つだけなので、別スレッドで並行して計算する。結果は行ごとの総和なのでスレッド数 / 実行順によらず同じ。
+				// 進捗コールバックは (ステージ名が GPU 側と入れ替わるのを避けるため) 渡さない。キャンセルは GPU 側の通知で検出し、future は下で必ず待つ。
+				std::future<SH9> shFuture = std::async( std::launch::async, [&]() { return ProjectEquirectSH( eq, s.maxSampleValue, s.threadCount, ProgressFn{} ); } );
+
 				// GPU (Direct3D 12 Compute): Equirect -> Cube -> mip -> Irradiance / Prefilter / LUT を GPU 上で実行して読み戻す
 				GpuBakeResult r;
-				if( !BakeOnGpu( job.device, eq, s, progress, r, err ) ) return false;
+				if( lutCached ) r.brdfLut = lut; // GPU 側は計算済み LUT を見つけると LUT pass を省く
+				if( !BakeOnGpu( job.device, eq, s, progress, r, err ) ) return false; // 失敗 / キャンセル時も shFuture のデストラクタが完了を待つ
 				irradiance = std::move( r.irradiance );
 				prefiltered = std::move( r.prefiltered );
 				lut = std::move( r.brdfLut );
+				sh = shFuture.get();
 			}
 			else
 			{
@@ -288,12 +323,14 @@ namespace ibl
 
 				irradiance = ConvolveIrradiance( source, s, progress );
 				prefiltered = PrefilterSpecular( source, s, progress );
-				lut = BakeBrdfLut( s.lutSize, s.lutSamples, s.threadCount, progress );
+				if( !lutCached ) lut = BakeBrdfLut( s.lutSize, s.lutSamples, s.threadCount, progress );
+				// CPU ベイクは全コアを使い切るので SH は従来どおり後から計算する
+				sh = ProjectEquirectSH( eq, s.maxSampleValue, s.threadCount, progress );
 			}
+			if( !lutCached ) StoreCachedLut( lutKey, lut );
 
-			// SH (L2) は HDRI から直接求める (CPU / GPU どちらのベイクでも同じ。BakeSettings のサンプルクランプも Irradiance と同様に掛ける)
 			BakedTextures result;
-			result.sh = ProjectEquirectSH( eq, s.maxSampleValue, s.threadCount, progress );
+			result.sh = sh;
 
 			if( progress ) progress( "Packing textures", 0.0f );
 			result.stem = job.stem;

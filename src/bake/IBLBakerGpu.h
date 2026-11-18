@@ -17,7 +17,8 @@ namespace ibl
 	{
 		CubeMap irradiance;
 		CubeMap prefiltered;
-		std::vector<float> brdfLut; // size*size*2 (R=scale, G=bias)。BakeBrdfLut と同じ並び
+		std::vector<float> brdfLut; // size*size*2 (R=scale, G=bias)。BakeBrdfLut と同じ並び。
+		                            // 呼び出し前に lutSize^2*2 要素の計算済み LUT を入れておくと、GPU での LUT 計算を省略してそのまま返す。
 	};
 
 	// s の各サイズは RunBake で正規化済み (2 の累乗) であること。

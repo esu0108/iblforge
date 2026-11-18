@@ -184,7 +184,7 @@ namespace ui
 				if( ImGui::Button( T( Str::Cancel ) ) ) ctx.workflow.CancelBake();
 				ImGui::EndDisabled();
 			}
-			ImGui::TextWrapped( "%s", m.status.empty() ? T( Str::StatusInitial ) : m.status.c_str() );
+			ImGui::TextWrapped( "%s", m.status.Empty() ? T( Str::StatusInitial ) : m.status.Text().c_str() );
 
 			if( r.hasOutputs )
 			{

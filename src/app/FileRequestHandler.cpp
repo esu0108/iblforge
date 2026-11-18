@@ -35,10 +35,10 @@ namespace
 			workflow.ImportFiles( o );
 			break;
 		case ibl::DeriveResult::Status::MissingFile:
-			model.status = i18n::Fmt( i18n::Str::ImportNotFound, util::PathToUtf8( r.missing ).c_str() );
+			model.status.Set( i18n::Str::ImportNotFound, util::PathToUtf8( r.missing ).c_str() );
 			break;
 		case ibl::DeriveResult::Status::NotBakedName:
-			model.status = i18n::Tr( i18n::Str::ImportBadName );
+			model.status.Set( i18n::Str::ImportBadName );
 			break;
 		}
 	}
@@ -87,6 +87,6 @@ void FileRequestHandler::Process( HWND owner, AppModel& model, BakeWorkflow& wor
 		const std::filesystem::path dropped = req.droppedFile;
 		req.droppedFile.clear();
 		if( _wcsicmp( dropped.extension().c_str(), L".hdr" ) == 0 || _wcsicmp( dropped.extension().c_str(), L".exr" ) == 0 ) workflow.OpenHdr( dropped );
-		else model.status = i18n::Tr( i18n::Str::OnlyHdr );
+		else model.status.Set( i18n::Str::OnlyHdr );
 	}
 }
