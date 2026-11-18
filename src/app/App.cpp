@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "app/BakeSettingsIni.h"
 #include "app/RenderSync.h"
 #include "app/ViewInput.h"
 #include "i18n/I18n.h"
@@ -21,6 +22,9 @@ void App::Initialize( MainWindow& window, const CmdLine& cmd )
 	window.ClientSize( w, h );
 	m_renderer.Init( m_hwnd, w, h );
 	m_renderer.InitImGui( m_hwnd, m_dpiScale );
+	// ベイク設定を imgui.ini (パネル配置と同じファイル) に保存 / 復元する。読み込みは最初の NewFrame。
+	// コマンドラインでベイク設定が指定されたときは、その指定を優先して ini の保存値は読み込まない
+	bake_ini::Register( m_model, !cmd.hasBakeOptions );
 
 	m_ready = true;
 }
@@ -71,6 +75,7 @@ void App::RenderFrame()
 	ui::BuildMainUi( ctx );
 	ProcessCameraInput( m_camera, m_model.viewMouse );
 	ProcessShortcuts( m_model, m_workflow );
+	bake_ini::Sync(); // 設定が変わったら ini を要保存にする
 
 	SceneParams& scene = m_model.scene;
 	// アスペクト比は 3D View パネルの矩形から (ウィンドウ全体ではない)

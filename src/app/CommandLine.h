@@ -23,6 +23,7 @@ struct CmdLine
 	std::wstring output = L"output";
 	ibl::BakeSettings settings;
 	bool bakeOnly = false;
+	bool hasBakeOptions = false; // ベイク設定のオプション (--src など) が 1 つでも指定された (imgui.ini の保存済み設定より優先する)
 };
 
 CmdLine ParseCmdLine( int argc, wchar_t** argv );
