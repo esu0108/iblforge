@@ -74,7 +74,7 @@ float3 specular = prefilteredColor * (F0 * brdf.x + brdf.y);
 
 ## Screenshot
 
-![iblforge screenshot](docs/screenshot.png)
+![iblforge screenshot](docs/screenshot_en.png)
 
 The application provides a dockable interface with three main panels:
 

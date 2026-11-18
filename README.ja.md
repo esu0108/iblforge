@@ -74,7 +74,7 @@ float3 specular = prefilteredColor * (F0 * brdf.x + brdf.y);
 
 ## スクリーンショット
 
-![iblforgeのスクリーンショット](docs/screenshot.png)
+![iblforgeのスクリーンショット](docs/screenshot_ja.png)
 
 アプリケーションはドッキング可能なインターフェースを採用しており、主に以下の3つのパネルで構成されています。
 
