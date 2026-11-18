@@ -192,6 +192,7 @@ namespace ui
 				ImGui::TextWrapped( "%s", util::PathToUtf8( r.outputs.prefilteredCube ).c_str() );
 				ImGui::TextWrapped( "%s", util::PathToUtf8( r.outputs.brdfLut ).c_str() );
 				ImGui::TextWrapped( "%s", util::PathToUtf8( r.outputs.irradianceCube ).c_str() );
+				ImGui::TextWrapped( "%s", util::PathToUtf8( r.outputs.sh ).c_str() );
 			}
 		}
 	} // namespace

@@ -57,6 +57,22 @@ namespace ui
 			SceneParams& scene = m.scene;
 			ImGui::SeparatorText( "IBL" );
 			ImGui::Checkbox( T( Str::DiffuseOn ), &scene.useDiffuse );
+			// 拡散光の入力: Irradiance Cube か SH (L2)。SH は係数があるとき (ベイク後 / *_sh.json 付きのインポート) だけ選べる
+			{
+				const char* const names[] = { T( Str::DiffuseSrcCube ), T( Str::DiffuseSrcSh ) };
+				scene.diffuseSource = std::clamp( scene.diffuseSource, 0, static_cast<int>( DiffuseSource_Count ) - 1 );
+				const bool shActive = scene.diffuseSource == DiffuseSource_SH && !scene.shAvailable; // SH を選んだまま係数が無くなった: 描画は Cube にフォールバック
+				if( ImGui::BeginCombo( T( Str::DiffuseSource ), names[shActive ? DiffuseSource_IrradianceCube : scene.diffuseSource] ) )
+				{
+					for( int i = 0; i < DiffuseSource_Count; ++i )
+					{
+						ImGui::BeginDisabled( i == DiffuseSource_SH && !scene.shAvailable );
+						if( ImGui::Selectable( names[i], scene.diffuseSource == i ) ) scene.diffuseSource = i;
+						ImGui::EndDisabled();
+					}
+					ImGui::EndCombo();
+				}
+			}
 			ImGui::Checkbox( T( Str::SpecularOn ), &scene.useSpecular );
 			ImGui::SliderFloat( T( Str::DiffuseIntensity ), &scene.diffuseIntensity, 0.0f, 4.0f );
 			ImGui::SliderFloat( T( Str::SpecularIntensity ), &scene.specularIntensity, 0.0f, 4.0f );
@@ -96,7 +112,7 @@ namespace ui
 	{
 		const float s = ctx.dpiScale;
 		ImGui::PushItemWidth( -LabelColumnWidth( { T( Str::Shape ), T( Str::Roughness ), T( Str::Metallic ), T( Str::Reflectance ), T( Str::Albedo ),
-			T( Str::DiffuseIntensity ), T( Str::SpecularIntensity ), T( Str::EnvRotation ), T( Str::Exposure ), T( Str::Tonemap ), T( Str::SkyBlur ) }, s ) );
+			T( Str::DiffuseSource ), T( Str::DiffuseIntensity ), T( Str::SpecularIntensity ), T( Str::EnvRotation ), T( Str::Exposure ), T( Str::Tonemap ), T( Str::SkyBlur ) }, s ) );
 		DrawObjectSection( ctx );
 		DrawMaterialSection( ctx.model.scene );
 		DrawIblSection( ctx.model );

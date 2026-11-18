@@ -16,6 +16,14 @@ enum SceneObject : int
 	SceneObject_Count
 };
 
+// 拡散光 (diffuse IBL) の入力
+enum DiffuseSource : int
+{
+	DiffuseSource_IrradianceCube = 0,
+	DiffuseSource_SH,
+	DiffuseSource_Count
+};
+
 const char* SceneObjectName( int object ); // UI 表示名 (定義は MeshLibrary.cpp)
 
 struct SceneParams
@@ -40,6 +48,11 @@ struct SceneParams
 	float envRotation = 0.0f;  // ラジアン
 	float skyBlur = 0.0f;  // 0..1 (プレフィルタ mip を roughness として引く)
 	int   tonemap = 0;
+
+	// 拡散光の入力: 0 = Irradiance Cube, 1 = SH (L2, 9 係数)。SH が無い (係数ファイルの無いインポート) ときは Irradiance Cube を使う
+	int  diffuseSource = DiffuseSource_IrradianceCube;
+	bool shAvailable = false;                 // sh が有効 (ベイク直後 / <stem>_sh.json を読めた)
+	DirectX::XMFLOAT3 sh[9]{};                // E/π の SH 係数 (IrradianceOverPiSH の結果。環境の回転前の座標系)
 
 	bool useDiffuse = true;
 	bool useSpecular = true;

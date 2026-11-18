@@ -26,6 +26,7 @@ namespace ibl
 		std::filesystem::path prefilteredCube; // <stem>_prefiltered.dds  (BakeSettings::cubeFormat, Cube, 全mip)
 		std::filesystem::path brdfLut;         // <stem>_brdf_lut.dds     (R16G16_FLOAT, 2D)
 		std::filesystem::path irradianceCube;  // <stem>_irradiance.dds   (BakeSettings::cubeFormat, Cube, mip 無し, = E/π)
+		std::filesystem::path sh;              // <stem>_sh.json          (SH L2 の 9 係数。irradiance_over_pi と radiance。ShFile.h)
 
 		static BakeOutputs ForStem( const std::filesystem::path& dir, const std::wstring& stem );
 	};
@@ -37,6 +38,7 @@ namespace ibl
 		std::shared_ptr<DirectX::ScratchImage> prefiltered; // Cube, 全 mip
 		std::shared_ptr<DirectX::ScratchImage> lut;         // 2D
 		std::shared_ptr<DirectX::ScratchImage> irradiance;  // Cube, mip 無し
+		SH9 sh;                                             // HDRI を射影した放射輝度の SH (L2)。<stem>_sh.json の元。diffuse 用の E/π は IrradianceOverPiSH で求める
 		std::wstring stem;                                  // 入力 HDR のファイル名 (拡張子なし) = 出力ファイル名のもと
 		bool Valid() const { return prefiltered && lut && irradiance; }
 	};
@@ -48,6 +50,6 @@ namespace ibl
 	// progress が BakeCancelled を投げると中断し、false と err = "Canceled" を返す。
 	bool RunBake( const BakeJob& job, const ProgressFn& progress, BakedTextures& out, std::string& err );
 
-	// ベイク結果を dir に DDS 3 ファイルとして保存する (dir は無ければ作成)。保存先は outputs に返す。
+	// ベイク結果を dir に DDS 3 ファイルと SH 係数 (JSON) として保存する (dir は無ければ作成)。保存先は outputs に返す。
 	bool SaveBaked( const BakedTextures& baked, const std::filesystem::path& dir, BakeOutputs& outputs, std::string& err );
 } // namespace ibl

@@ -25,9 +25,9 @@ public:
 	// 実行中のベイクを中断する (結果は捨てられ、直前のベイク結果 / 表示はそのまま残る)
 	void CancelBake() { m_bake.Cancel(); }
 	bool IsCancelling() const { return IsBaking() && m_bake.CancelRequested(); }
-	// 既存の DDS ファイルをインポートして表示に使う (ファイル由来なので Save 対象にはならない)
+	// 既存の DDS ファイルをインポートして表示に使う (隣に <stem>_sh.json があれば SH 係数も読む) (ファイル由来なので Save 対象にはならない)
 	void ImportFiles( const ibl::BakeOutputs& outputs );
-	// ベイク結果を dir に 3 ファイルとして保存する
+	// ベイク結果を dir に 4 ファイル (DDS 3 つ + SH 係数 JSON) として保存する
 	void SaveTo( const std::filesystem::path& dir );
 
 	// フレーム開始前に毎フレーム呼ぶ。完了した読み込み / ベイクを受け取ってモデルと GPU に反映する
@@ -36,6 +36,7 @@ public:
 private:
 	void OnLoadFinished( HdrLoadResult& r );
 	void OnBakeFinished( BakeController::State state );
+	void SetSceneSh( const ibl::SH9* radiance );
 	bool ShowBaked( ibl::BakedTextures baked ); // ベイク直後のメモリ上の結果を表示に使う (ファイルは書かない)
 
 	AppModel& m_model;

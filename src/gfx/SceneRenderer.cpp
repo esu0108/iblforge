@@ -26,6 +26,8 @@ namespace
 		XMFLOAT4   env;        // exposure, rotation, maxMip, skyLod
 		XMFLOAT4   flags;      // useDiffuse, useSpecular, multiScatter, tonemap
 		XMFLOAT4   rect;       // シーン矩形の幅, 高さ (px) ※速度をピクセル単位にするため
+		XMFLOAT4   diffuse;    // x = 拡散光の入力 (0 = Irradiance Cube, 1 = SH)
+		XMFLOAT4   sh[9];      // E/π の SH 係数 (rgb, w 未使用)
 	};
 	static_assert( sizeof( SceneCB ) % 16 == 0, "cbuffer layout" );
 	constexpr UINT kCbSize = ( sizeof( SceneCB ) + 255 ) & ~255u;
@@ -187,6 +189,8 @@ void SceneRenderer::Draw( const Frame& f, const Resources& res, const SceneParam
 	cb.env = { std::exp2( p.exposureEV ), p.envRotation, maxMip, p.skyBlur * maxMip };
 	cb.flags = { p.useDiffuse ? 1.0f : 0.0f, p.useSpecular ? 1.0f : 0.0f, p.multiScatter ? 1.0f : 0.0f, static_cast<float>( p.tonemap ) };
 	cb.rect = { r.Width(), r.Height(), 0.0f, 0.0f };
+	cb.diffuse = { ( p.diffuseSource == DiffuseSource_SH && p.shAvailable ) ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f }; // SH が無ければ Irradiance Cube
+	for( int i = 0; i < 9; ++i ) cb.sh[i] = { p.sh[i].x, p.sh[i].y, p.sh[i].z, 0.0f };
 	std::memcpy( m_cbMapped[f.index], &cb, sizeof( cb ) );
 
 	ID3D12DescriptorHeap* heaps[] = { res.srvHeap };

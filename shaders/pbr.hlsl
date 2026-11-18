@@ -14,6 +14,8 @@ cbuffer SceneCB : register(b0)
     float4   gEnv;         // x = exposure (linear), y = env rotation (rad), z = max mip (= mipCount-1), w = sky lod
     float4   gFlags;       // x = use diffuse, y = use specular, z = multi-scatter, w = tonemap (0 ACES, 1 Reinhard, 2 none)
     float4   gRect;        // xy = シーン矩形の大きさ (px)
+    float4   gDiffuse;     // x = 拡散光の入力 (0 = Irradiance Cube, 1 = SH)
+    float4   gSH[9];       // E/π の SH 係数 (rgb)。基底の並びは ShFile.cpp / IBLBaker.h の SH9 と同じ
 };
 
 TextureCube<float4> gPrefiltered : register(t0);
@@ -51,6 +53,21 @@ float3 Present(float3 hdr)
     else if (mode == 1) c = c / (1.0 + c);
     else                c = saturate(c);
     return LinearToSRGB(c);
+}
+
+// SH (L2) による E(n)/π。基底 / 並びは IBLBaker.h の SH9 と同じ (左手系 / Y-up)。リンギングで負になり得るので 0 で切る。
+float3 EvalIrradianceSH(float3 n)
+{
+    float3 r = gSH[0].rgb * 0.282095;
+    r += gSH[1].rgb * (0.488603 * n.y);
+    r += gSH[2].rgb * (0.488603 * n.z);
+    r += gSH[3].rgb * (0.488603 * n.x);
+    r += gSH[4].rgb * (1.092548 * n.x * n.y);
+    r += gSH[5].rgb * (1.092548 * n.y * n.z);
+    r += gSH[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
+    r += gSH[7].rgb * (1.092548 * n.x * n.z);
+    r += gSH[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
+    return max(r, 0.0);
 }
 
 // ---------------------------------------------------------------- 速度 (TAA)
@@ -125,8 +142,11 @@ PSOut PSMain(VSOut i)
     }
     specular *= gMaterial.w * gFlags.y;
 
-    // --- Irradiance Cube 拡散光 (irradiance / π) * albedo
-    float3 irradianceOverPi = gIrradiance.SampleLevel(gSampler, RotateY(N, gEnv.y), 0).rgb;
+    // --- 拡散光 (irradiance / π) * albedo。入力は Irradiance Cube か SH (L2)。どちらも環境の回転を同じように掛ける
+    float3 Nenv = RotateY(N, gEnv.y);
+    float3 irradianceOverPi;
+    if (gDiffuse.x > 0.5) irradianceOverPi = EvalIrradianceSH(Nenv);
+    else                  irradianceOverPi = gIrradiance.SampleLevel(gSampler, Nenv, 0).rgb;
     float3 diffuse = diffuseColor * (1.0 - specColor) * irradianceOverPi * gMaterial.z * gFlags.x;
 
     PSOut o;

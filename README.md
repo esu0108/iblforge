@@ -19,12 +19,13 @@ iblforge converts equirectangular HDR environment maps into PBR-ready lighting t
 
 ## Generated Textures
 
-From a single equirectangular HDR environment map, iblforge generates three DDS textures:
+From a single equirectangular HDR environment map, iblforge generates three DDS textures and a spherical-harmonics (SH) coefficient file:
 
 | Output | Description | Default Format |
 |---|---|---|
 | `*_prefiltered.dds` | GGX-prefiltered specular environment cubemap with a complete mip chain | RGBA16F |
 | `*_irradiance.dds` | Diffuse irradiance cubemap generated using cosine-weighted convolution | RGBA16F |
+| `*_sh.json` | Diffuse irradiance as 9 SH (L2) RGB coefficients, plus the raw radiance projection | JSON |
 | `*_brdf_lut.dds` | Split-sum BRDF integration lookup texture | RG16F |
 
 ### Prefiltered Specular Cubemap
@@ -44,6 +45,22 @@ Generated using cosine-weighted hemisphere sampling. The output stores irradianc
 ```hlsl
 float3 diffuse = albedo * irradiance;
 ```
+
+### SH Coefficients (`*_sh.json`)
+
+The HDRI is projected directly onto L2 spherical harmonics (9 RGB coefficients, solid-angle weighted, with the same sample clamp as the bake settings). The file contains two arrays:
+
+- `irradiance_over_pi` — the cosine-convolved coefficients; the same quantity as the irradiance cubemap (irradiance / π).
+- `radiance` — the raw projection of the HDRI.
+
+Basis order, constants and coordinate system (left-handed, Y-up) are written into the file. Diffuse lighting is evaluated as:
+
+```hlsl
+// Y[i]: real SH basis of the unit normal N, in the order stored in the file
+float3 diffuse = albedo * max(0, sum_i irradiance_over_pi[i] * Y[i](N));
+```
+
+L2 SH is smooth by nature, so sharp light sources (e.g. the sun) are blurred compared with the irradiance cubemap. In the 3D View, the *Diffuse source* option switches between the irradiance cubemap and the SH coefficients. SH is available after a bake, or after importing files that have a `*_sh.json` next to them.
 
 ### BRDF Integration LUT
 
@@ -120,7 +137,7 @@ iblforge.exe
 
 Baked textures remain in memory until explicitly saved.
 
-Previously generated textures can be loaded using `File > Import baked textures...`. Select any one of the three DDS files, and the other two are located automatically.
+Previously generated textures can be loaded using `File > Import baked textures...`. Select any one of the three DDS files, and the other two are located automatically (`*_sh.json` is loaded too if it exists).
 
 ### Command-Line Usage
 

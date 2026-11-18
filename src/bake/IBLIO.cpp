@@ -14,6 +14,7 @@
 #include "Common.h"
 #include "ExrDecode.h"
 #include "IBLBakerGpu.h"
+#include "ShFile.h"
 #include "cpu/ParallelFor.h"
 
 namespace ibl
@@ -43,6 +44,7 @@ namespace ibl
 		o.prefilteredCube = dir / ( stem + L"_prefiltered.dds" );
 		o.brdfLut = dir / ( stem + L"_brdf_lut.dds" );
 		o.irradianceCube = dir / ( stem + L"_irradiance.dds" );
+		o.sh = dir / ( stem + L"_sh.json" );
 		return o;
 	}
 
@@ -228,6 +230,12 @@ namespace ibl
 			if( FAILED( hr ) ) { err = Hr( what, hr ) + ": " + util::PathToUtf8( path ); return false; }
 			return true;
 		}
+
+		bool SaveSh( const SH9& sh, const std::filesystem::path& path, std::string& err )
+		{
+			if( !WriteShJson( path, sh, err ) ) { err += ": " + util::PathToUtf8( path ); return false; }
+			return true;
+		}
 	} // namespace
 
 	bool SaveBaked( const BakedTextures& baked, const std::filesystem::path& dir, BakeOutputs& outputs, std::string& err )
@@ -239,7 +247,8 @@ namespace ibl
 		outputs = BakeOutputs::ForStem( dir, baked.stem );
 		return SaveDds( *baked.prefiltered, outputs.prefilteredCube, "SaveToDDSFile(prefiltered)", err ) &&
 			   SaveDds( *baked.lut, outputs.brdfLut, "SaveToDDSFile(lut)", err ) &&
-			   SaveDds( *baked.irradiance, outputs.irradianceCube, "SaveToDDSFile(irradiance)", err );
+			   SaveDds( *baked.irradiance, outputs.irradianceCube, "SaveToDDSFile(irradiance)", err ) &&
+			   SaveSh( baked.sh, outputs.sh, err );
 	}
 
 	// ------------------------------------------------------------------ パイプライン
@@ -282,8 +291,11 @@ namespace ibl
 				lut = BakeBrdfLut( s.lutSize, s.lutSamples, s.threadCount, progress );
 			}
 
-			if( progress ) progress( "Packing textures", 0.0f );
+			// SH (L2) は HDRI から直接求める (CPU / GPU どちらのベイクでも同じ。BakeSettings のサンプルクランプも Irradiance と同様に掛ける)
 			BakedTextures result;
+			result.sh = ProjectEquirectSH( eq, s.maxSampleValue, s.threadCount, progress );
+
+			if( progress ) progress( "Packing textures", 0.0f );
 			result.stem = job.stem;
 			if( !( result.prefiltered = MakeCubeImage( prefiltered, s.cubeFormat, progress, "Compressing prefiltered (BC6H)", err ) ) ) return false;
 			if( !( result.lut = MakeLutImage( lut, s.lutSize, err ) ) ) return false;

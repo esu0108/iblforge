@@ -55,7 +55,7 @@ int RunHeadless( const CmdLine& c )
 	// コマンドラインのベイクは従来どおりそのままファイルへ保存する (GUI では File > Save... で保存)
 	if( !ibl::SaveBaked( baked, c.output, out, err ) ) { std::fprintf( stderr, "ERROR: %s\n", err.c_str() ); return 1; }
 	std::printf( "Baked on %s in %.2f s\n", c.settings.useGpu ? "GPU" : "CPU", sec );
-	std::printf( "Output:\n  %s\n  %s\n  %s\n", util::PathToUtf8( out.prefilteredCube ).c_str(), util::PathToUtf8( out.brdfLut ).c_str(),
-				 util::PathToUtf8( out.irradianceCube ).c_str() );
+	std::printf( "Output:\n  %s\n  %s\n  %s\n  %s\n", util::PathToUtf8( out.prefilteredCube ).c_str(), util::PathToUtf8( out.brdfLut ).c_str(),
+				 util::PathToUtf8( out.irradianceCube ).c_str(), util::PathToUtf8( out.sh ).c_str() );
 	return 0;
 }

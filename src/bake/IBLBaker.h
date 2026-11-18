@@ -127,6 +127,25 @@ namespace ibl
 	// コールバックから BakeCancelled を投げるとベイクを中断できる (ParallelFor はワーカーの例外を呼び出し元へ伝える)。
 	using ProgressFn = std::function<void( const char* stage, float progress01 )>;
 
+	// ---------------------------------------------------------------- 球面調和関数 (SH, L2 = 9 係数)
+	// 基底は実数 SH (Condon-Shortley 位相なし。グラフィックスで一般的な並び / 定数)。方向 (x,y,z) は他と同じ左手系 / Y-up:
+	//   i : 0     1        2        3        4         5         6               7         8
+	//   Y : Y00   Y1-1(y)  Y10(z)   Y11(x)   Y2-2(xy)  Y2-1(yz)  Y20(3z^2-1)     Y21(xz)   Y22(x^2-y^2)
+	//   定数 0.282095, 0.488603 (1..3), 1.092548 (4,5,7), 0.315392 (6), 0.546274 (8)
+	struct SH9
+	{
+		Vec3 c[9];
+	};
+	// 基底 Y_i(dir) (dir は正規化済み)
+	void EvalSHBasis( Vec3 dir, float out[9] );
+	// HDRI (等距円筒図法) を放射輝度 L(ω) として SH へ射影する (立体角で重み付けした画素の総和)。maxSampleValue > 0 なら画素の最大成分をクランプ (BakeSettings と同じ)。
+	SH9 ProjectEquirectSH( const EquirectImage& eq, float maxSampleValue, uint32_t threads, const ProgressFn& progress );
+	// 放射輝度の SH を、コサイン畳み込みして π で割った SH にする (= Irradiance Cube と同じ「E(N)/π」。diffuse = albedo * EvalSH(...))。
+	//   帯域 l ごとの係数: l=0: 1, l=1: 2/3, l=2: 1/4  (Ramamoorthi & Hanrahan の A_l / π)
+	SH9 IrradianceOverPiSH( const SH9& radiance );
+	// SH を方向 dir で評価する (負の値は 0 にしない)
+	Vec3 EvalSH( const SH9& sh, Vec3 dir );
+
 	CubeMap EquirectToCube( const EquirectImage& eq, uint32_t size, uint32_t threads, const ProgressFn& progress );
 	void GenerateMips( CubeMap& cube );
 	CubeMap PrefilterSpecular( const CubeMap& source, const BakeSettings& s, const ProgressFn& progress );

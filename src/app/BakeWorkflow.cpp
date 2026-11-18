@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "bake/ShFile.h"
+
 #include "Common.h"
 #include "i18n/I18n.h"
 
@@ -24,10 +26,21 @@ void BakeWorkflow::StartBake()
 	if( m_bake.Start( std::move( job ) ) ) m_model.status = i18n::Tr( i18n::Str::Baking );
 }
 
+// 3D ビューが拡散光に使う SH (E/π) を更新する。radiance が nullptr なら「SH 無し」(UI で選べなくなり、描画は Irradiance Cube にフォールバック)
+void BakeWorkflow::SetSceneSh( const ibl::SH9* radiance )
+{
+	SceneParams& sc = m_model.scene;
+	sc.shAvailable = radiance != nullptr;
+	if( !radiance ) return;
+	const ibl::SH9 e = ibl::IrradianceOverPiSH( *radiance );
+	for( int i = 0; i < 9; ++i ) sc.sh[i] = { e.c[i].x, e.c[i].y, e.c[i].z };
+}
+
 bool BakeWorkflow::ShowBaked( ibl::BakedTextures baked )
 {
 	std::string err;
 	if( !m_renderer.LoadIBL( baked, err ) ) { m_model.status = i18n::Fmt( i18n::Str::UploadFailed, err.c_str() ); return false; }
+	SetSceneSh( &baked.sh );
 	m_model.results.baked = std::move( baked );
 	m_model.results.hasBaked = true;
 	m_model.results.bakedSaved = false;
@@ -38,6 +51,11 @@ void BakeWorkflow::ImportFiles( const ibl::BakeOutputs& o )
 {
 	std::string err;
 	if( !m_renderer.LoadIBL( o.prefilteredCube, o.brdfLut, o.irradianceCube, err ) ) { m_model.status = i18n::Fmt( i18n::Str::ImportFailed, err.c_str() ); return; }
+	// SH 係数 (<stem>_sh.json) は任意。無ければ 3D ビューでは Irradiance Cube だけを使える
+	ibl::SH9 sh;
+	std::error_code ec;
+	if( std::filesystem::exists( o.sh, ec ) && ibl::ReadShJson( o.sh, sh, err ) ) SetSceneSh( &sh );
+	else SetSceneSh( nullptr );
 	BakeResults& r = m_model.results;
 	r.outputs = o;
 	r.hasOutputs = true;
