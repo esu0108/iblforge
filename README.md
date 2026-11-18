@@ -216,12 +216,6 @@ The BRDF LUT is always exported as RG16F.
 
 BC6H compression is performed on the CPU using parallel processing.
 
-### Canceling a Bake
-
-An ongoing baking operation can be canceled at any time using the **Cancel** button.
-
-Both CPU and GPU implementations check for cancellation between processing batches. When canceled, partial results are discarded and the previously completed bake is preserved.
-
 ## 3D Preview
 
 iblforge includes a Direct3D 12-based PBR viewer for inspecting generated IBL textures.
