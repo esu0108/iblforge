@@ -274,7 +274,7 @@ iblforgeでは、以下のサードパーティライブラリを使用してい
 
 | ライブラリ | 用途 | バージョン |
 |---|---|---|
-| [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR画像の読み込み、DDSテクスチャの入出力 | oct2025 |
+| [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR画像の読み込み、DDSテクスチャの入出力 | may2026 |
 | [TinyEXR](https://github.com/syoyo/tinyexr) | OpenEXR (.exr) 画像の読み込み | v3.4.0 |
 | [Dear ImGui](https://github.com/ocornut/imgui) | GUIおよびDockingインターフェース | v1.93.0-docking |
 | [rapidobj](https://github.com/guybrush77/rapidobj) | ビルド時のメッシュ変換ツールにおけるOBJ読み込み | v1.1 |

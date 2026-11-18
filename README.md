@@ -274,7 +274,7 @@ iblforge uses the following third-party libraries:
 
 | Library | Purpose | Version |
 |---|---|---|
-| [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR image loading and DDS texture I/O | oct2025 |
+| [DirectXTex](https://github.com/microsoft/DirectXTex) | HDR image loading and DDS texture I/O | may2026 |
 | [TinyEXR](https://github.com/syoyo/tinyexr) | OpenEXR (.exr) image loading | v3.4.0 |
 | [Dear ImGui](https://github.com/ocornut/imgui) | GUI and docking interface | v1.93.0-docking |
 | [rapidobj](https://github.com/guybrush77/rapidobj) | OBJ loading for the build-time mesh converter | v1.1 |

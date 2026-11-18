@@ -25,7 +25,7 @@ set(BC_USE_OPENMP OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   DirectXTex
   GIT_REPOSITORY https://github.com/microsoft/DirectXTex.git
-  GIT_TAG        oct2025
+  GIT_TAG        may2026
   GIT_SHALLOW    TRUE
 )
 
